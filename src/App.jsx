@@ -28,7 +28,6 @@ function App() {
     amount: "",
     transactionDate: new Date().toISOString().split("T")[0],
     note: "",
-    category: "general",
   });
 
   // Memoized function for handling input changes
@@ -39,7 +38,7 @@ function App() {
 
   // Memoized function for handling type changes
   const handleTypeChange = useCallback((type) => {
-    setForm((prevForm) => ({ ...prevForm, type, category: "general" }));
+    setForm((prevForm) => ({ ...prevForm, type }));
   }, []);
 
   // Memoized function for adding transactions
@@ -66,7 +65,6 @@ function App() {
         ...prevForm,
         amount: "",
         note: "",
-        category: "general",
       }));
     },
     [form, dispatch],

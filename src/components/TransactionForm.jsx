@@ -1,6 +1,5 @@
 import { memo } from "react";
 import FormInput from "./FormInput";
-import FormSelect from "./FormSelect";
 
 const TransactionForm = ({
   form,
@@ -8,37 +7,6 @@ const TransactionForm = ({
   handleTypeChange,
   addTransaction,
 }) => {
-  const incomeCategories = [
-    "salary",
-    "investment",
-    "freelancing",
-    "gift",
-    "rental",
-    "refund",
-    "other",
-  ];
-
-  const expenseCategories = [
-    "food",
-    "transportation",
-    "housing",
-    "healthcare",
-    "entertainment",
-    "education",
-    "shopping",
-    "utilities",
-    "debt",
-    "savings",
-    "travel",
-    "gifts",
-    "childcare",
-    "personal care",
-    "other",
-  ];
-
-  const categories =
-    form.type === "income" ? incomeCategories : expenseCategories;
-
   return (
     <div className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
       <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
@@ -83,17 +51,6 @@ const TransactionForm = ({
             type="date"
             value={form.transactionDate}
             onChange={handleInputChange}
-            required
-          />
-        </div>
-
-        <div className="mb-4">
-          <FormSelect
-            label="Category"
-            name="category"
-            value={form.category}
-            onChange={handleInputChange}
-            options={categories}
             required
           />
         </div>

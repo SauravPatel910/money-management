@@ -71,9 +71,6 @@ const TransactionHistory = ({
                   Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Amount
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
@@ -131,9 +128,6 @@ const TransactionRow = memo(
           >
             {transaction.type}
           </span>
-        </td>
-        <td className="px-4 py-3 text-sm whitespace-nowrap capitalize">
-          {transaction.category}
         </td>
         <td
           className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${

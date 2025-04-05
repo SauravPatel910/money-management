@@ -93,7 +93,6 @@ const ActivityItem = memo(({ transaction, formatDate }) => {
           <div className="text-sm text-gray-500">
             {formatDate(transaction.transactionDate)}
           </div>
-          <div className="font-medium capitalize">{transaction.category}</div>
           {transaction.note && (
             <div className="mt-0.5 max-w-[150px] truncate text-xs text-gray-500">
               {transaction.note}
