@@ -96,6 +96,14 @@ function App() {
     return [...transactions].sort((a, b) => {
       const dateA = new Date(a.transactionDate);
       const dateB = new Date(b.transactionDate);
+
+      // If dates are equal, sort by ID (newest added first if sorting by newest)
+      if (dateA.getTime() === dateB.getTime()) {
+        // ID is a timestamp when the transaction was added
+        return sortOrder === "newest" ? b.id - a.id : a.id - b.id;
+      }
+
+      // Otherwise sort by date
       return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
     });
   }, [transactions, sortOrder]);
