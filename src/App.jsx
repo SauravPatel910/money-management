@@ -6,19 +6,22 @@ import {
   deleteTransaction as deleteTransactionAction,
   toggleSortOrder as toggleSortOrderAction,
   selectTransactions,
-  selectBalance,
+  selectAccounts,
+  selectTotalBalance,
   selectSummary,
   selectSortOrder,
 } from "./store/transactionsSlice";
 import BalanceCard from "./components/BalanceCard";
+import AccountManager from "./components/AccountManager";
 import TransactionForm from "./components/TransactionForm";
 import RecentActivity from "./components/RecentActivity";
 import TransactionHistory from "./components/TransactionHistory";
 
 function App() {
-  // Use Redux selectors instead of local state
+  // Use Redux selectors
   const transactions = useSelector(selectTransactions);
-  const balance = useSelector(selectBalance);
+  const accounts = useSelector(selectAccounts);
+  const totalBalance = useSelector(selectTotalBalance);
   const summary = useSelector(selectSummary);
   const sortOrder = useSelector(selectSortOrder);
   const dispatch = useDispatch();
@@ -27,8 +30,12 @@ function App() {
     type: "income",
     amount: "",
     transactionDate: new Date().toISOString().split("T")[0],
+    account: "cash",
     note: "",
   });
+
+  // State for toggling the accounts manager visibility
+  const [showAccountManager, setShowAccountManager] = useState(false);
 
   // Memoized function for handling input changes
   const handleInputChange = useCallback((e) => {
@@ -37,9 +44,55 @@ function App() {
   }, []);
 
   // Memoized function for handling type changes
-  const handleTypeChange = useCallback((type) => {
-    setForm((prevForm) => ({ ...prevForm, type }));
-  }, []);
+  const handleTypeChange = useCallback(
+    (type) => {
+      // Reset some form fields when changing type to avoid invalid data
+      setForm((prevForm) => {
+        const newForm = { ...prevForm, type };
+
+        // Remove fields that are not relevant to the new type
+        if (type === "income" || type === "expense") {
+          delete newForm.from;
+          delete newForm.to;
+          delete newForm.direction;
+          delete newForm.person;
+        } else if (type === "transfer") {
+          delete newForm.account;
+          delete newForm.direction;
+          delete newForm.person;
+          // Set defaults for transfer
+          newForm.from = "cash";
+          newForm.to = accounts.length > 1 ? accounts[1].id : "bank";
+        } else if (type === "person") {
+          delete newForm.from;
+          delete newForm.to;
+          // Set defaults for person transaction
+          newForm.direction = "to";
+          newForm.account = "cash";
+          newForm.person = "";
+        }
+
+        return newForm;
+      });
+    },
+    [accounts],
+  );
+
+  // Memoized function for handling select changes
+  const handleSelectChange = useCallback(
+    (e) => {
+      const { name, value } = e.target;
+      setForm((prevForm) => ({ ...prevForm, [name]: value }));
+
+      // Prevent setting same account for from/to in transfers
+      if (name === "from" && value === form.to) {
+        setForm((prevForm) => ({ ...prevForm, to: prevForm.from }));
+      } else if (name === "to" && value === form.from) {
+        setForm((prevForm) => ({ ...prevForm, from: prevForm.to }));
+      }
+    },
+    [form.to, form.from],
+  );
 
   // Memoized function for adding transactions
   const handleAddTransaction = useCallback(
@@ -52,6 +105,50 @@ function App() {
         return;
       }
 
+      // Find relevant account objects for validation
+      const getAccount = (id) => accounts.find((acc) => acc.id === id);
+
+      // Validate form based on transaction type
+      if (form.type === "transfer") {
+        if (form.from === form.to) {
+          alert("You cannot transfer money to the same account");
+          return;
+        }
+
+        // Check if there's enough money in the 'from' account
+        const sourceAccount = getAccount(form.from);
+        const sourceBalance = sourceAccount ? sourceAccount.balance : 0;
+
+        if (amount > sourceBalance) {
+          alert(
+            `Not enough balance in your ${sourceAccount?.name || "account"} for this transfer`,
+          );
+          return;
+        }
+      } else if (form.type === "person" && form.direction === "to") {
+        // Check if there's enough money for paying someone
+        const sourceAccount = getAccount(form.account);
+        const sourceBalance = sourceAccount ? sourceAccount.balance : 0;
+
+        if (amount > sourceBalance) {
+          alert(
+            `Not enough balance in your ${sourceAccount?.name || "account"} to make this payment`,
+          );
+          return;
+        }
+      } else if (form.type === "expense") {
+        // Check if there's enough money for an expense
+        const sourceAccount = getAccount(form.account);
+        const sourceBalance = sourceAccount ? sourceAccount.balance : 0;
+
+        if (amount > sourceBalance) {
+          alert(
+            `Not enough balance in your ${sourceAccount?.name || "account"} for this expense`,
+          );
+          return;
+        }
+      }
+
       const newTransaction = {
         id: Date.now(),
         ...form,
@@ -61,13 +158,19 @@ function App() {
 
       dispatch(addTransactionAction(newTransaction));
 
-      setForm((prevForm) => ({
-        ...prevForm,
-        amount: "",
-        note: "",
-      }));
+      // Reset form fields
+      setForm((prevForm) => {
+        const resetForm = { ...prevForm, amount: "", note: "" };
+
+        // Keep type-specific fields
+        if (form.type === "person") {
+          resetForm.person = ""; // Reset person name for new entry
+        }
+
+        return resetForm;
+      });
     },
-    [form, dispatch],
+    [form, dispatch, accounts],
   );
 
   // Memoized function for deleting transactions
@@ -118,17 +221,33 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-100 to-primary-200 px-4 py-10">
       <div className="mx-auto max-w-6xl">
-        <h1 className="mb-10 text-center text-4xl font-bold text-primary-800 drop-shadow-sm">
+        <h1 className="mb-6 text-center text-4xl font-bold text-primary-800 drop-shadow-sm">
           <span className="decoration-primary-400">Money Management App</span>
         </h1>
 
-        <BalanceCard balance={balance} summary={summary} />
+        <div className="mb-4 flex justify-end">
+          <button
+            className="transform rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            onClick={() => setShowAccountManager(!showAccountManager)}
+          >
+            {showAccountManager ? "Hide Accounts" : "Manage Accounts"}
+          </button>
+        </div>
+
+        {showAccountManager && (
+          <div className="mb-8">
+            <AccountManager />
+          </div>
+        )}
+
+        <BalanceCard />
 
         <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
           <TransactionForm
             form={form}
             handleInputChange={handleInputChange}
             handleTypeChange={handleTypeChange}
+            handleSelectChange={handleSelectChange}
             addTransaction={handleAddTransaction}
           />
 

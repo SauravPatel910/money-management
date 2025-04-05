@@ -1,4 +1,6 @@
 import { memo } from "react";
+import { useSelector } from "react-redux";
+import { selectAccounts } from "../store/transactionsSlice";
 
 const TransactionHistory = ({
   transactions,
@@ -8,6 +10,14 @@ const TransactionHistory = ({
   deleteTransaction,
   sortTransactions,
 }) => {
+  const accounts = useSelector(selectAccounts);
+
+  // Get account name from ID
+  const getAccountName = (accountId) => {
+    const account = accounts.find((acc) => acc.id === accountId);
+    return account ? account.name : accountId;
+  };
+
   // Get sorted transactions
   const sortedTransactions = sortTransactions(transactions);
 
@@ -71,6 +81,9 @@ const TransactionHistory = ({
                   Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                  Details
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Amount
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
@@ -91,6 +104,7 @@ const TransactionHistory = ({
                   transaction={transaction}
                   formatDate={formatDate}
                   deleteTransaction={deleteTransaction}
+                  getAccountName={getAccountName}
                 />
               ))}
             </tbody>
@@ -101,16 +115,110 @@ const TransactionHistory = ({
   );
 };
 
+// Function to get the background color based on transaction type
+const getRowBackgroundColor = (transaction) => {
+  if (transaction.type === "income") {
+    return "bg-gradient-to-r from-income-light/20 to-transparent";
+  } else if (transaction.type === "expense") {
+    return "bg-gradient-to-r from-expense-light/20 to-transparent";
+  } else if (transaction.type === "transfer") {
+    return "bg-gradient-to-r from-primary-100/30 to-transparent";
+  } else if (transaction.type === "person") {
+    return transaction.direction === "to"
+      ? "bg-gradient-to-r from-expense-light/20 to-transparent"
+      : "bg-gradient-to-r from-income-light/20 to-transparent";
+  }
+  return "";
+};
+
+// Function to get the type badge styles
+const getTypeBadgeStyles = (transaction) => {
+  if (transaction.type === "income") {
+    return "bg-gradient-to-r from-income to-income-dark text-white";
+  } else if (transaction.type === "expense") {
+    return "bg-gradient-to-r from-expense to-expense-dark text-white";
+  } else if (transaction.type === "transfer") {
+    return "bg-gradient-to-r from-primary-500 to-primary-600 text-white";
+  } else if (transaction.type === "person") {
+    return transaction.direction === "to"
+      ? "bg-gradient-to-r from-expense to-expense-dark text-white"
+      : "bg-gradient-to-r from-income to-income-dark text-white";
+  }
+  return "";
+};
+
+// Function to get transaction details
+const getTransactionDetails = (transaction, getAccountName) => {
+  if (transaction.type === "income" || transaction.type === "expense") {
+    return getAccountName(transaction.account || "cash");
+  } else if (transaction.type === "transfer") {
+    return `${getAccountName(transaction.from || "cash")} → ${getAccountName(transaction.to || "bank")}`;
+  } else if (transaction.type === "person") {
+    return transaction.direction === "to"
+      ? `to ${transaction.person} from ${getAccountName(transaction.account || "cash")}`
+      : `from ${transaction.person} to ${getAccountName(transaction.account || "cash")}`;
+  }
+  return "";
+};
+
+// Function to get amount display styles
+const getAmountStyles = (transaction) => {
+  if (transaction.type === "income") {
+    return "text-income-dark";
+  } else if (transaction.type === "expense") {
+    return "text-expense-dark";
+  } else if (transaction.type === "transfer") {
+    return "text-primary-700";
+  } else if (transaction.type === "person") {
+    return transaction.direction === "to"
+      ? "text-expense-dark"
+      : "text-income-dark";
+  }
+  return "";
+};
+
+// Function to get amount prefix (+ or -)
+const getAmountPrefix = (transaction) => {
+  if (transaction.type === "income") {
+    return "+";
+  } else if (transaction.type === "expense") {
+    return "-";
+  } else if (transaction.type === "transfer") {
+    return "↔";
+  } else if (transaction.type === "person") {
+    return transaction.direction === "to" ? "-" : "+";
+  }
+  return "";
+};
+
+// Function to get the relevant account balances for the transaction
+const getAccountBalances = (transaction) => {
+  // If using the new structure with accountBalances, use that
+  if (transaction.accountBalances) {
+    return Object.entries(transaction.accountBalances).map(([id, balance]) => ({
+      id,
+      balance,
+    }));
+  }
+
+  // Otherwise fall back to the old structure
+  return [
+    { id: "cash", balance: transaction.cashBalance || 0 },
+    { id: "bank", balance: transaction.bankBalance || 0 },
+  ];
+};
+
 // Memoized individual transaction row component
 const TransactionRow = memo(
-  ({ transaction, formatDate, deleteTransaction }) => {
+  ({ transaction, formatDate, deleteTransaction, getAccountName }) => {
+    // Get account balances for this transaction
+    const accountBalances = getAccountBalances(transaction);
+
     return (
       <tr
-        className={`transition-colors duration-150 hover:bg-gray-50 ${
-          transaction.type === "income"
-            ? "bg-gradient-to-r from-income-light/20 to-transparent"
-            : "bg-gradient-to-r from-expense-light/20 to-transparent"
-        }`}
+        className={`transition-colors duration-150 hover:bg-gray-50 ${getRowBackgroundColor(
+          transaction,
+        )}`}
       >
         <td className="px-4 py-3 text-sm whitespace-nowrap">
           {formatDate(transaction.transactionDate)}
@@ -120,23 +228,26 @@ const TransactionRow = memo(
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap capitalize">
           <span
-            className={`rounded-full px-2 py-1 text-xs font-medium shadow-sm ${
-              transaction.type === "income"
-                ? "bg-gradient-to-r from-income to-income-dark text-white"
-                : "bg-gradient-to-r from-expense to-expense-dark text-white"
-            }`}
+            className={`rounded-full px-2 py-1 text-xs font-medium shadow-sm ${getTypeBadgeStyles(
+              transaction,
+            )}`}
           >
-            {transaction.type}
+            {transaction.type === "person"
+              ? transaction.direction === "to"
+                ? "paid"
+                : "received"
+              : transaction.type}
           </span>
         </td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap capitalize">
+          {getTransactionDetails(transaction, getAccountName)}
+        </td>
         <td
-          className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${
-            transaction.type === "income"
-              ? "text-income-dark"
-              : "text-expense-dark"
-          }`}
+          className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${getAmountStyles(
+            transaction,
+          )}`}
         >
-          {transaction.type === "income" ? "+" : "-"}₹
+          {getAmountPrefix(transaction)}₹
           {transaction.amount.toLocaleString("en-IN", {
             minimumFractionDigits: 2,
           })}
@@ -144,11 +255,36 @@ const TransactionRow = memo(
         <td className="max-w-xs truncate px-4 py-3 text-sm">
           {transaction.note || "-"}
         </td>
-        <td className="px-4 py-3 text-sm font-medium whitespace-nowrap text-primary-700">
-          ₹
-          {transaction.closingBalance.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-          })}
+        <td className="px-4 py-3 text-sm">
+          <div className="space-y-1">
+            {accountBalances.map((account) => (
+              <div
+                key={account.id}
+                className="flex justify-between whitespace-nowrap"
+              >
+                <span className="mr-2 text-xs font-medium text-gray-600">
+                  {getAccountName(account.id)}:
+                </span>
+                <span className="text-xs font-medium text-primary-700">
+                  ₹
+                  {account.balance.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+            ))}
+            <div className="flex justify-between border-t border-gray-100 pt-1 whitespace-nowrap">
+              <span className="mr-2 text-xs font-medium text-gray-600">
+                Total:
+              </span>
+              <span className="text-xs font-bold text-primary-700">
+                ₹
+                {transaction.totalBalance?.toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                }) || "-"}
+              </span>
+            </div>
+          </div>
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap">
           <button
