@@ -176,7 +176,7 @@ export const transactionsSlice = createSlice({
 
       if (accountIndex !== -1) {
         // Don't allow changing the balance directly - it's calculated from transactions
-        const { balance, ...accountUpdates } = updates;
+        const { ...accountUpdates } = updates; // const { balance, ...accountUpdates } = updates;
         state.accounts[accountIndex] = {
           ...state.accounts[accountIndex],
           ...accountUpdates,

@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from "react";
+import { memo, use, useMemo, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { selectAccounts } from "../store/transactionsSlice";
 import FormInput from "./FormInput";
@@ -12,16 +12,19 @@ const TransactionForm = ({
   addTransaction,
 }) => {
   const accounts = useSelector(selectAccounts);
-  const [formFields, setFormFields] = useState([]);
 
-  // Extract account options for select fields
-  const accountOptions = accounts.map((account) => ({
-    value: account.id,
-    label: account.name,
-  }));
+  // Extract account options for select fields using useMemo
+  const accountOptions = useMemo(
+    () =>
+      accounts.map((account) => ({
+        value: account.id,
+        label: account.name,
+      })),
+    [accounts],
+  );
 
-  // Dynamically update form fields based on transaction type
-  useEffect(() => {
+  // Generate form fields function - will be used with 'use' hook
+  const generateFormFields = useCallback(() => {
     let fields = [];
 
     // Common fields for all transaction types
@@ -185,8 +188,17 @@ const TransactionForm = ({
       </div>,
     );
 
-    setFormFields(fields);
+    return fields;
   }, [form, handleInputChange, handleSelectChange, accountOptions]);
+
+  // Create a promise that resolves to the form fields based on dependencies
+  // This will recompute when dependencies change
+  const formFieldsPromise = useMemo(() => {
+    return Promise.resolve(generateFormFields());
+  }, [generateFormFields]);
+
+  // Use the new React 19 'use' hook to use the promise during render
+  const formFields = use(formFieldsPromise);
 
   return (
     <div className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
