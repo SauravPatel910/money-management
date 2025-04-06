@@ -4,6 +4,7 @@ import {
   fetchAccounts,
   addTransactionToFirebase,
   deleteTransactionFromFirebase,
+  updateTransactionInFirebase,
   addAccountToFirebase,
   updateAccountInFirebase,
   deleteAccountFromFirebase,
@@ -40,11 +41,27 @@ export const addTransactionThunk = createAsyncThunk(
     // Add the new transaction to the existing transactions
     const updatedTransactions = [...transactions, newTransaction];
 
-    // Recalculate balances
-    const { accountBalances } = recalculateBalances(
+    // Sort transactions by date before recalculation
+    updatedTransactions.sort(
+      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+    );
+
+    // Recalculate balances for all transactions
+    const { accountBalances, processedTransactions } = recalculateBalances(
       updatedTransactions,
       accounts,
     );
+
+    // Update all transactions with new balance history
+    // This is necessary to keep the balance information accurate for all transactions
+    const updatePromises = processedTransactions.map((t) => {
+      return updateTransactionInFirebase(t.id, {
+        accountBalances: t.accountBalances,
+        totalBalance: t.totalBalance,
+      });
+    });
+
+    await Promise.all(updatePromises);
 
     // Update account balances in Firebase
     const updatedAccounts = await updateAccountBalances(
@@ -52,8 +69,8 @@ export const addTransactionThunk = createAsyncThunk(
       accountBalances,
     );
 
-    // Return both the new transaction and updated accounts
-    return { newTransaction, updatedAccounts };
+    // Return both the processed transactions and updated accounts
+    return { processedTransactions, updatedAccounts };
   },
 );
 
@@ -81,15 +98,17 @@ export const deleteTransactionThunk = createAsyncThunk(
       accounts,
     );
 
-    // Update all transactions with new balance history if needed
-    // This step is commented out for now as it would require updating all transactions in Firebase
-    // const updatePromises = processedTransactions.map(t =>
-    //   updateTransactionInFirebase(t.id, {
-    //     accountBalances: t.accountBalances,
-    //     totalBalance: t.totalBalance
-    //   })
-    // );
-    // await Promise.all(updatePromises);
+    // Update all transactions with new balance history
+    // This is necessary to keep the balance information accurate
+    const updatePromises = processedTransactions.map((t) => {
+      // Always update the transaction balances to ensure they're correct
+      return updateTransactionInFirebase(t.id, {
+        accountBalances: t.accountBalances,
+        totalBalance: t.totalBalance,
+      });
+    });
+
+    await Promise.all(updatePromises);
 
     // Update account balances in Firebase
     const updatedAccounts = await updateAccountBalances(
@@ -97,7 +116,7 @@ export const deleteTransactionThunk = createAsyncThunk(
       accountBalances,
     );
 
-    // Return both the transaction ID and updated accounts
+    // Return transaction ID, updated accounts, and processed transactions
     return { id, updatedAccounts, processedTransactions };
   },
 );
@@ -189,7 +208,7 @@ export const transactionsSlice = createSlice({
 
       // Add Transaction
       .addCase(addTransactionThunk.fulfilled, (state, action) => {
-        state.transactions.push(action.payload.newTransaction);
+        state.transactions = action.payload.processedTransactions;
         // Sort transactions by transaction date with newest transactions last
         state.transactions.sort(
           (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
@@ -200,9 +219,7 @@ export const transactionsSlice = createSlice({
 
       // Delete Transaction
       .addCase(deleteTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = state.transactions.filter(
-          (t) => t.id !== action.payload.id,
-        );
+        state.transactions = action.payload.processedTransactions;
         state.summary = calculateSummary(state.transactions);
         state.accounts = action.payload.updatedAccounts;
       })

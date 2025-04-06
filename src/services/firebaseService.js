@@ -38,8 +38,13 @@ export const recalculateBalances = (transactions = [], accounts = []) => {
     return acc;
   }, {});
 
+  // Sort transactions by date before processing
+  const sortedTransactions = [...transactions].sort(
+    (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+  );
+
   // Process all transactions to recalculate account balances
-  const processedTransactions = transactions.map((transaction) => {
+  const processedTransactions = sortedTransactions.map((transaction) => {
     if (transaction.type === "income") {
       // Regular income
       const accountId = transaction.account || "cash";
@@ -135,26 +140,43 @@ export const addTransactionToFirebase = async (transaction) => {
     const currentTransactions = await fetchTransactions();
     const accounts = await fetchAccounts();
 
-    // Create a copy of transactions and sort by date
-    const sortedTransactions = [...currentTransactions];
-    sortedTransactions.sort(
-      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
-    );
+    // Make sure the new transaction has all required fields
+    const transactionWithDefaults = {
+      ...transaction,
+      account: transaction.account || "cash",
+      entryDate: transaction.entryDate || new Date().toISOString(), // Default to today if not provided
+    };
 
-    // Recalculate all balances up to this point
-    const { accountBalances } = recalculateBalances(
-      sortedTransactions,
+    // Temporarily add the new transaction to calculate correct balances
+    const newTransactionsSet = [
+      ...currentTransactions,
+      transactionWithDefaults,
+    ];
+
+    // Recalculate all balances including the new transaction
+    const { processedTransactions } = recalculateBalances(
+      newTransactionsSet,
       accounts,
     );
 
-    // Create the transaction with account balance snapshot
+    // Find our transaction in the processed list to get the correct balances
+    const matchTransaction = (t) =>
+      t.type === transaction.type &&
+      t.amount === transaction.amount &&
+      t.transactionDate === transaction.transactionDate &&
+      (t.note === transaction.note || (!t.note && !transaction.note));
+
+    const correctTransaction = processedTransactions.find(matchTransaction);
+
+    if (!correctTransaction) {
+      throw new Error("Failed to process transaction correctly");
+    }
+
+    // Create the transaction with the correct account balance snapshot
     const transactionWithBalances = {
-      ...transaction,
-      accountBalances: { ...accountBalances },
-      totalBalance: Object.values(accountBalances).reduce(
-        (sum, balance) => sum + balance,
-        0,
-      ),
+      ...transactionWithDefaults,
+      accountBalances: { ...correctTransaction.accountBalances },
+      totalBalance: correctTransaction.totalBalance,
     };
 
     // Save to Firebase
@@ -293,6 +315,8 @@ export const updateAccountBalances = async (accounts, accountBalances) => {
     });
 
     await update(accountsRef, updates);
+
+    // Create a new array of accounts with updated balances
     return accounts.map((account) => ({
       ...account,
       balance: accountBalances[account.id] || 0,

@@ -202,6 +202,7 @@ const TransactionRow = memo(
     accounts,
   }) => {
     // Get account balances at the time of this transaction
+    // Use the transaction's own stored account balances, which represent the state AFTER this transaction
     const cashBalanceAtTransaction = transaction.accountBalances?.cash || 0;
     const bankBalanceAtTransaction = transaction.accountBalances?.bank || 0;
     const totalBalanceAtTransaction =
