@@ -105,6 +105,7 @@ const TransactionHistory = ({
                   formatDate={formatDate}
                   deleteTransaction={deleteTransaction}
                   getAccountName={getAccountName}
+                  accounts={accounts}
                 />
               ))}
             </tbody>
@@ -191,28 +192,24 @@ const getAmountPrefix = (transaction) => {
   return "";
 };
 
-// Function to get the relevant account balances for the transaction
-const getAccountBalances = (transaction) => {
-  // If using the new structure with accountBalances, use that
-  if (transaction.accountBalances) {
-    return Object.entries(transaction.accountBalances).map(([id, balance]) => ({
-      id,
-      balance,
-    }));
-  }
-
-  // Otherwise fall back to the old structure
-  return [
-    { id: "cash", balance: transaction.cashBalance || 0 },
-    { id: "bank", balance: transaction.bankBalance || 0 },
-  ];
-};
-
 // Memoized individual transaction row component
 const TransactionRow = memo(
-  ({ transaction, formatDate, deleteTransaction, getAccountName }) => {
-    // Get account balances for this transaction
-    const accountBalances = getAccountBalances(transaction);
+  ({
+    transaction,
+    formatDate,
+    deleteTransaction,
+    getAccountName,
+    accounts,
+  }) => {
+    // Get account balances at the time of this transaction
+    const cashBalanceAtTransaction = transaction.accountBalances?.cash || 0;
+    const bankBalanceAtTransaction = transaction.accountBalances?.bank || 0;
+    const totalBalanceAtTransaction =
+      transaction.totalBalance ||
+      Object.values(transaction.accountBalances || {}).reduce(
+        (sum, balance) => sum + balance,
+        0,
+      );
 
     return (
       <tr
@@ -257,31 +254,39 @@ const TransactionRow = memo(
         </td>
         <td className="px-4 py-3 text-sm">
           <div className="space-y-1">
-            {accountBalances.map((account) => (
-              <div
-                key={account.id}
-                className="flex justify-between whitespace-nowrap"
-              >
-                <span className="mr-2 text-xs font-medium text-gray-600">
-                  {getAccountName(account.id)}:
-                </span>
-                <span className="text-xs font-medium text-primary-700">
-                  ₹
-                  {account.balance.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-            ))}
+            <div className="flex justify-between whitespace-nowrap">
+              <span className="mr-2 text-xs font-medium text-gray-600">
+                Cash:
+              </span>
+              <span className="text-xs font-medium text-primary-700">
+                ₹
+                {cashBalanceAtTransaction.toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+            <div className="flex justify-between whitespace-nowrap">
+              <span className="mr-2 text-xs font-medium text-gray-600">
+                {accounts.find((acc) => acc.id === "bank")?.name ||
+                  "Primary Bank"}
+                :
+              </span>
+              <span className="text-xs font-medium text-primary-700">
+                ₹
+                {bankBalanceAtTransaction.toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            </div>
             <div className="flex justify-between border-t border-gray-100 pt-1 whitespace-nowrap">
               <span className="mr-2 text-xs font-medium text-gray-600">
                 Total:
               </span>
               <span className="text-xs font-bold text-primary-700">
                 ₹
-                {transaction.totalBalance?.toLocaleString("en-IN", {
+                {totalBalanceAtTransaction.toLocaleString("en-IN", {
                   minimumFractionDigits: 2,
-                }) || "-"}
+                })}
               </span>
             </div>
           </div>

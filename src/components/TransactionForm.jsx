@@ -1,4 +1,4 @@
-import { memo, use, useMemo, useCallback } from "react";
+import { memo, useMemo } from "react";
 import { useSelector } from "react-redux";
 import { selectAccounts } from "../store/transactionsSlice";
 import FormInput from "./FormInput";
@@ -23,12 +23,9 @@ const TransactionForm = ({
     [accounts],
   );
 
-  // Generate form fields function - will be used with 'use' hook
-  const generateFormFields = useCallback(() => {
-    let fields = [];
-
-    // Common fields for all transaction types
-    fields.push(
+  // Common fields for all transaction types
+  const commonFields = useMemo(() => {
+    return [
       <div className="mb-4" key="amount">
         <FormInput
           label="Amount"
@@ -41,9 +38,6 @@ const TransactionForm = ({
           required
         />
       </div>,
-    );
-
-    fields.push(
       <div className="mb-4" key="date">
         <FormInput
           label="Date"
@@ -54,7 +48,12 @@ const TransactionForm = ({
           required
         />
       </div>,
-    );
+    ];
+  }, [form.amount, form.transactionDate, handleInputChange]);
+
+  // Type-specific fields
+  const typeSpecificFields = useMemo(() => {
+    const fields = [];
 
     // Fields specific to transaction types
     if (form.type === "income" || form.type === "expense") {
@@ -100,9 +99,6 @@ const TransactionForm = ({
             ))}
           </select>
         </div>,
-      );
-
-      fields.push(
         <div className="mb-4" key="to">
           <label className="mb-2 block text-sm font-medium text-primary-700">
             To Account
@@ -135,9 +131,6 @@ const TransactionForm = ({
             required
           />
         </div>,
-      );
-
-      fields.push(
         <div className="mb-4" key="account">
           <label className="mb-2 block text-sm font-medium text-primary-700">
             Account
@@ -157,9 +150,6 @@ const TransactionForm = ({
             ))}
           </select>
         </div>,
-      );
-
-      fields.push(
         <div className="mb-4" key="person">
           <FormInput
             label="Person's Name"
@@ -181,7 +171,7 @@ const TransactionForm = ({
           label="Note (Optional)"
           name="note"
           type="text"
-          value={form.note}
+          value={form.note || ""}
           onChange={handleInputChange}
           placeholder="Add a note"
         />
@@ -189,16 +179,18 @@ const TransactionForm = ({
     );
 
     return fields;
-  }, [form, handleInputChange, handleSelectChange, accountOptions]);
-
-  // Create a promise that resolves to the form fields based on dependencies
-  // This will recompute when dependencies change
-  const formFieldsPromise = useMemo(() => {
-    return Promise.resolve(generateFormFields());
-  }, [generateFormFields]);
-
-  // Use the new React 19 'use' hook to use the promise during render
-  const formFields = use(formFieldsPromise);
+  }, [
+    form.type,
+    form.account,
+    form.from,
+    form.to,
+    form.direction,
+    form.person,
+    form.note,
+    accountOptions,
+    handleInputChange,
+    handleSelectChange,
+  ]);
 
   return (
     <div className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
@@ -236,7 +228,8 @@ const TransactionForm = ({
           </div>
         </div>
 
-        {formFields}
+        {commonFields}
+        {typeSpecificFields}
 
         <div>
           <button

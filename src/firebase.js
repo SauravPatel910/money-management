@@ -1,6 +1,6 @@
 // Import the functions you need from the Firebase SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getDatabase, ref } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,7 +16,11 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore
-const db = getFirestore(app);
+// Initialize Realtime Database
+const db = getDatabase(app);
 
-export { db };
+// Create references for accounts and transactions
+const transactionsRef = ref(db, "transactions");
+const accountsRef = ref(db, "accounts");
+
+export { db, transactionsRef, accountsRef };

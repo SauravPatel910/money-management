@@ -2,9 +2,9 @@ import { memo, useState, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   selectAccounts,
-  addAccount,
-  editAccount,
-  deleteAccount,
+  addAccountThunk,
+  editAccountThunk,
+  deleteAccountThunk,
 } from "../store/transactionsSlice";
 import FormInput from "./FormInput";
 
@@ -306,7 +306,7 @@ const AccountManager = () => {
       }
 
       dispatch(
-        addAccount({
+        addAccountThunk({
           name: newAccount.name,
           icon: newAccount.icon || "bank",
         }),
@@ -329,7 +329,7 @@ const AccountManager = () => {
       }
 
       dispatch(
-        editAccount({
+        editAccountThunk({
           id,
           name: accountToEdit.name,
           icon: accountToEdit.icon,
@@ -355,7 +355,17 @@ const AccountManager = () => {
           `Are you sure you want to delete the account "${account.name}"?`,
         )
       ) {
-        dispatch(deleteAccount(id));
+        dispatch(deleteAccountThunk(id))
+          .unwrap()
+          .then(() => {
+            // Success case handled automatically
+          })
+          .catch((error) => {
+            // This will be called if the account has transactions
+            alert(
+              error.message || "Cannot delete account that has transactions",
+            );
+          });
       }
     },
     [accounts, dispatch],
@@ -366,19 +376,22 @@ const AccountManager = () => {
       const { name, value } = e.target;
 
       if (id) {
-        // Editing existing account
+        // Editing existing account - update temporarily in component state
+        // const updatedAccounts = accounts.map((acc) =>
+        //   acc.id === id ? { ...acc, [name]: value } : acc,
+        // );
+        // Only update the specific account in the array of accounts
+        // const updatedAccount = updatedAccounts.find((acc) => acc.id === id);
         dispatch({
-          type: "transactions/accountsUpdated",
-          payload: accounts.map((acc) =>
-            acc.id === id ? { ...acc, [name]: value } : acc,
-          ),
+          type: "transactions/accountUpdatedLocally",
+          payload: { id, [name]: value },
         });
       } else {
         // New account
         setNewAccount((prev) => ({ ...prev, [name]: value }));
       }
     },
-    [accounts, dispatch],
+    [dispatch],
   );
 
   const handleCancelAdd = useCallback(() => {
@@ -389,12 +402,6 @@ const AccountManager = () => {
   const handleCancelEdit = useCallback(() => {
     setEditingAccountId(null);
   }, []);
-
-  // Find the account being edited
-  // const accountBeingEdited = useMemo(
-  //   () => accounts.find((acc) => acc.id === editingAccountId),
-  //   [accounts, editingAccountId],
-  // );
 
   return (
     <div className="rounded-2xl border-b-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
