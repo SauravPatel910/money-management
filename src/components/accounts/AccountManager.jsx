@@ -5,8 +5,8 @@ import {
   addAccountThunk,
   editAccountThunk,
   deleteAccountThunk,
-} from "../store/transactionsSlice";
-import FormInput from "./FormInput";
+} from "../../store/transactionsSlice";
+import Input from "../forms/Input";
 
 // Account icon components
 const AccountIcon = memo(({ type }) => {
@@ -142,7 +142,7 @@ const AddAccountForm = memo(
       </h4>
       <form onSubmit={handleAddAccount}>
         <div className="mb-3">
-          <FormInput
+          <Input
             label="Account Name"
             name="name"
             type="text"
@@ -190,7 +190,7 @@ const EditAccountForm = memo(
   ({ account, handleInputChange, handleEditAccount, onCancel }) => (
     <form onSubmit={(e) => handleEditAccount(e, account.id)}>
       <div className="mb-3">
-        <FormInput
+        <Input
           label="Account Name"
           name="name"
           type="text"

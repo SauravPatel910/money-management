@@ -11,11 +11,11 @@ import {
   fetchTransactionsThunk,
   fetchAccountsThunk,
 } from "../store/transactionsSlice";
-import BalanceCard from "../components/BalanceCard";
-import TransactionForm from "../components/TransactionForm";
-import RecentActivity from "../components/RecentActivity";
+import BalanceCard from "../components/accounts/BalanceCard";
+import TransactionForm from "../components/forms/TransactionForm";
+import RecentActivity from "../components/transactions/RecentActivity";
 
-function HomePage() {
+function Dashboard() {
   // Use Redux selectors
   const transactions = useSelector(selectTransactions);
   const accounts = useSelector(selectAccounts);
@@ -281,4 +281,4 @@ function HomePage() {
   );
 }
 
-export default HomePage;
+export default Dashboard;

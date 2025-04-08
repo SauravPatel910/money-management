@@ -7,10 +7,10 @@ import {
   fetchTransactionsThunk,
   fetchAccountsThunk,
 } from "../store/transactionsSlice";
-import AccountManager from "../components/AccountManager";
-import BalanceCard from "../components/BalanceCard";
+import AccountManager from "../components/accounts/AccountManager";
+import BalanceCard from "../components/accounts/BalanceCard";
 
-function AccountPage() {
+function Accounts() {
   const status = useSelector(selectTransactionsStatus);
   const error = useSelector(selectTransactionsError);
   const dispatch = useDispatch();
@@ -108,4 +108,4 @@ function AccountPage() {
   );
 }
 
-export default AccountPage;
+export default Accounts;

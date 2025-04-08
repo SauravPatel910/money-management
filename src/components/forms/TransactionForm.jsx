@@ -1,8 +1,8 @@
 import { memo, useMemo } from "react";
 import { useSelector } from "react-redux";
-import { selectAccounts } from "../store/transactionsSlice";
-import FormInput from "./FormInput";
-import FormSelect from "./FormSelect";
+import { selectAccounts } from "../../store/transactionsSlice";
+import Input from "./Input";
+import Select from "./Select";
 
 const TransactionForm = ({
   form,
@@ -27,7 +27,7 @@ const TransactionForm = ({
   const commonFields = useMemo(() => {
     return [
       <div className="mb-4" key="amount">
-        <FormInput
+        <Input
           label="Amount"
           name="amount"
           type="number"
@@ -39,7 +39,7 @@ const TransactionForm = ({
         />
       </div>,
       <div className="mb-4" key="date">
-        <FormInput
+        <Input
           label="Date"
           name="transactionDate"
           type="date"
@@ -122,7 +122,7 @@ const TransactionForm = ({
     } else if (form.type === "person") {
       fields.push(
         <div className="mb-4" key="direction">
-          <FormSelect
+          <Select
             label="Direction"
             name="direction"
             value={form.direction || "to"}
@@ -151,7 +151,7 @@ const TransactionForm = ({
           </select>
         </div>,
         <div className="mb-4" key="person">
-          <FormInput
+          <Input
             label="Person's Name"
             name="person"
             type="text"
@@ -167,7 +167,7 @@ const TransactionForm = ({
     // Note field for all transaction types
     fields.push(
       <div className="mb-6" key="note">
-        <FormInput
+        <Input
           label="Note (Optional)"
           name="note"
           type="text"

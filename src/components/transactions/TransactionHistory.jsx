@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { useSelector } from "react-redux";
-import { selectAccounts } from "../store/transactionsSlice";
+import { selectAccounts } from "../../store/transactionsSlice";
 
 const TransactionHistory = ({
   transactions,

@@ -9,7 +9,7 @@ import {
   query,
   orderByChild,
 } from "firebase/database";
-import { transactionsRef, accountsRef } from "../firebase";
+import { transactionsRef, accountsRef } from "../config/firebase";
 
 // Default accounts if none exist
 const DEFAULT_ACCOUNTS = [

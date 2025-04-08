@@ -11,7 +11,7 @@ import {
   fetchTransactionsThunk,
   fetchAccountsThunk,
 } from "../store/transactionsSlice";
-import TransactionHistory from "../components/TransactionHistory";
+import TransactionHistory from "../components/transactions/TransactionHistory";
 
 function TransactionHistoryPage() {
   const transactions = useSelector(selectTransactions);

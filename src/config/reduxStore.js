@@ -1,7 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
-import transactionsReducer from "./transactionsSlice";
+import transactionsReducer from "../store/transactionsSlice";
 
-export const store = configureStore({
+export const reduxStore = configureStore({
   reducer: {
     transactions: transactionsReducer,
   },
@@ -9,4 +9,4 @@ export const store = configureStore({
   devTools: import.meta.env.MODE !== "production",
 });
 
-export default store;
+export default reduxStore;

@@ -4,7 +4,7 @@ import {
   selectAccounts,
   selectTotalBalance,
   selectSummary,
-} from "../store/transactionsSlice";
+} from "../../store/transactionsSlice";
 
 // Extract account icon component to optimize rendering
 const AccountIcon = memo(({ type }) => {
