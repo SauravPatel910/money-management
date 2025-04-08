@@ -50,11 +50,11 @@ const RecentActivity = ({ transactions, formatDate }) => {
               getAccountName={getAccountName}
             />
           ))}
-          <div className="pt-4 text-center">
+          {/* <div className="pt-4 text-center">
             <span className="inline-block cursor-pointer border-b border-dashed border-primary-300 text-sm font-medium text-primary-600 transition-colors hover:scale-105 hover:border-primary-600 hover:text-primary-800 hover:shadow-sm">
               See all transactions below
             </span>
-          </div>
+          </div> */}
         </div>
       )}
     </div>

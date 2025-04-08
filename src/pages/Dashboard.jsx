@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   addTransactionThunk,
@@ -181,14 +180,6 @@ function Dashboard() {
     return new Date(dateString).toLocaleDateString(undefined, options);
   }, []);
 
-  // Using React Query for any potential async operations
-  const { data: cachedTransactions } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => Promise.resolve(transactions),
-    initialData: transactions,
-    enabled: transactions.length > 0,
-  });
-
   // Show loading state
   if (status === "loading" && transactions.length === 0) {
     return (
@@ -272,10 +263,7 @@ function Dashboard() {
           addTransaction={handleAddTransaction}
         />
 
-        <RecentActivity
-          transactions={cachedTransactions || transactions}
-          formatDate={formatDate}
-        />
+        <RecentActivity transactions={transactions} formatDate={formatDate} />
       </div>
     </div>
   );

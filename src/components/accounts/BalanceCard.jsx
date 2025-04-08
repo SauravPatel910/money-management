@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { useSelector } from "react-redux";
 import {
   selectAccounts,
@@ -179,11 +179,18 @@ const AccountCard = memo(({ account }) => {
       key={account.id}
       className="rounded-xl bg-white/90 p-4 shadow-sm transition-all duration-200 hover:shadow-md"
     >
-      <div className="mb-2 flex items-center">
-        <div className="mr-3 rounded-lg bg-primary-100 p-2">
-          <AccountIcon type={account.icon} />
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="mr-3 rounded-lg bg-primary-100 p-2">
+            <AccountIcon type={account.icon} />
+          </div>
+          <h4 className="font-medium text-primary-800">{account.name}</h4>
         </div>
-        <h4 className="font-medium text-primary-800">{account.name}</h4>
+        {account.owner && (
+          <div className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
+            {account.owner}
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-baseline">
@@ -201,17 +208,6 @@ const BalanceCard = () => {
   const accounts = useSelector(selectAccounts);
   const totalBalance = useSelector(selectTotalBalance);
   const summary = useSelector(selectSummary);
-
-  // Memoize computed values
-  const cashAccount = useMemo(
-    () => accounts.find((acc) => acc.id === "cash"),
-    [accounts],
-  );
-
-  const cashBalance = useMemo(() => cashAccount?.balance || 0, [cashAccount]);
-
-  // Memoize displayAccounts to avoid recreating on each render
-  const displayAccounts = useMemo(() => accounts.slice(0, 3), [accounts]);
 
   // Income and expense icons
   const incomeIcon = (
@@ -250,22 +246,6 @@ const BalanceCard = () => {
     </svg>
   );
 
-  const cashIcon = (
-    <svg
-      className="h-6 w-6"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-
   return (
     <div className="mb-8 space-y-6">
       <div className="rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 p-6 text-white shadow-card transition-all duration-300 hover:shadow-lg">
@@ -286,7 +266,7 @@ const BalanceCard = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2">
         <SummaryCard
           type="income"
           title="Total Income"
@@ -299,17 +279,11 @@ const BalanceCard = () => {
           amount={summary.totalExpense}
           icon={expenseIcon}
         />
-        <SummaryCard
-          type="cash"
-          title={cashAccount?.name || "Cash"}
-          amount={cashBalance}
-          icon={cashIcon}
-        />
       </div>
 
       {/* Display account cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-        {displayAccounts.map((account) => (
+        {accounts.map((account) => (
           <AccountCard key={account.id} account={account} />
         ))}
       </div>
