@@ -1,6 +1,6 @@
 import { memo } from "react";
 
-const FormInput = ({
+const Input = ({
   label,
   name,
   type,
@@ -33,4 +33,4 @@ const FormInput = ({
   );
 };
 
-export default memo(FormInput);
+export default memo(Input);

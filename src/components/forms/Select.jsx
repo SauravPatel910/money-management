@@ -1,6 +1,6 @@
 import { memo } from "react";
 
-const FormSelect = ({ label, name, value, onChange, options, required }) => {
+const Select = ({ label, name, value, onChange, options, required }) => {
   return (
     <>
       <label
@@ -27,4 +27,4 @@ const FormSelect = ({ label, name, value, onChange, options, required }) => {
   );
 };
 
-export default memo(FormSelect);
+export default memo(Select);

@@ -1,219 +1,257 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  fetchTransactions,
+  fetchAccounts,
+  addTransactionToFirebase,
+  deleteTransactionFromFirebase,
+  updateTransactionInFirebase,
+  addAccountToFirebase,
+  updateAccountInFirebase,
+  deleteAccountFromFirebase,
+  calculateSummary,
+  recalculateBalances,
+  updateAccountBalances,
+} from "../services/firebaseService";
 
-// Load transactions and accounts from localStorage
-const storedTransactions = JSON.parse(
-  localStorage.getItem("transactions") || "[]",
+// Create async thunks for Firebase operations
+export const fetchTransactionsThunk = createAsyncThunk(
+  "transactions/fetchTransactions",
+  async () => {
+    return await fetchTransactions();
+  },
 );
-const storedAccounts = JSON.parse(
-  localStorage.getItem("accounts") ||
-    // Default accounts if none exist
-    JSON.stringify([
-      { id: "cash", name: "Cash", balance: 0, icon: "cash" },
-      { id: "bank", name: "Primary Bank", balance: 0, icon: "bank" },
-    ]),
+
+export const fetchAccountsThunk = createAsyncThunk(
+  "transactions/fetchAccounts",
+  async () => {
+    return await fetchAccounts();
+  },
 );
 
-// Calculate summary based on transactions
-const calculateSummary = (transactions) => {
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((acc, t) => acc + t.amount, 0);
+export const addTransactionThunk = createAsyncThunk(
+  "transactions/addTransaction",
+  async (transaction, { getState }) => {
+    // First add the transaction to Firebase
+    const newTransaction = await addTransactionToFirebase(transaction);
 
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + t.amount, 0);
+    // Then get the current state to recalculate balances
+    const { transactions } = getState().transactions;
+    const { accounts } = getState().transactions;
 
-  return { totalIncome, totalExpense };
-};
+    // Add the new transaction to the existing transactions
+    const updatedTransactions = [...transactions, newTransaction];
 
-// Helper function to recalculate balances for all transactions and accounts
-const recalculateBalances = (transactions, accounts) => {
-  // Reset account balances to zero
-  const accountBalances = accounts.reduce((acc, account) => {
-    acc[account.id] = 0;
-    return acc;
-  }, {});
-
-  // Process all transactions to recalculate account balances
-  const processedTransactions = transactions.map((transaction) => {
-    if (transaction.type === "income") {
-      // Regular income
-      const accountId = transaction.account || "cash";
-      accountBalances[accountId] =
-        (accountBalances[accountId] || 0) + transaction.amount;
-    } else if (transaction.type === "expense") {
-      // Regular expense
-      const accountId = transaction.account || "cash";
-      accountBalances[accountId] =
-        (accountBalances[accountId] || 0) - transaction.amount;
-    } else if (transaction.type === "transfer") {
-      // Transfer between accounts
-      const fromAccountId = transaction.from || "cash";
-      const toAccountId = transaction.to || "bank";
-      accountBalances[fromAccountId] =
-        (accountBalances[fromAccountId] || 0) - transaction.amount;
-      accountBalances[toAccountId] =
-        (accountBalances[toAccountId] || 0) + transaction.amount;
-    } else if (transaction.type === "person") {
-      // Person-to-person transaction
-      const accountId = transaction.account || "cash";
-      if (transaction.direction === "to") {
-        // Giving money to someone
-        accountBalances[accountId] =
-          (accountBalances[accountId] || 0) - transaction.amount;
-      } else if (transaction.direction === "from") {
-        // Receiving money from someone
-        accountBalances[accountId] =
-          (accountBalances[accountId] || 0) + transaction.amount;
-      }
-    }
-
-    // Calculate total balance across all accounts
-    const totalBalance = Object.values(accountBalances).reduce(
-      (sum, balance) => sum + balance,
-      0,
+    // Sort transactions by date before recalculation
+    updatedTransactions.sort(
+      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
     );
 
-    return {
-      ...transaction,
-      accountBalances: { ...accountBalances }, // Store a snapshot of all account balances at this point
-      totalBalance: totalBalance,
-    };
-  });
+    // Recalculate balances for all transactions
+    const { accountBalances, processedTransactions } = recalculateBalances(
+      updatedTransactions,
+      accounts,
+    );
 
-  return {
-    processedTransactions,
-    accountBalances,
-  };
-};
+    // Update all transactions with new balance history
+    // This is necessary to keep the balance information accurate for all transactions
+    const updatePromises = processedTransactions.map((t) => {
+      return updateTransactionInFirebase(t.id, {
+        accountBalances: t.accountBalances,
+        totalBalance: t.totalBalance,
+      });
+    });
+
+    await Promise.all(updatePromises);
+
+    // Update account balances in Firebase
+    const updatedAccounts = await updateAccountBalances(
+      accounts,
+      accountBalances,
+    );
+
+    // Return both the processed transactions and updated accounts
+    return { processedTransactions, updatedAccounts };
+  },
+);
+
+export const deleteTransactionThunk = createAsyncThunk(
+  "transactions/deleteTransaction",
+  async (id, { getState }) => {
+    // First delete the transaction from Firebase
+    await deleteTransactionFromFirebase(id);
+
+    // Then get the current state to recalculate balances
+    const { transactions } = getState().transactions;
+    const { accounts } = getState().transactions;
+
+    // Remove the deleted transaction from the list
+    const updatedTransactions = transactions.filter((t) => t.id !== id);
+
+    // Sort transactions by date before recalculation
+    updatedTransactions.sort(
+      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+    );
+
+    // Recalculate balances for all transactions
+    const { accountBalances, processedTransactions } = recalculateBalances(
+      updatedTransactions,
+      accounts,
+    );
+
+    // Update all transactions with new balance history
+    // This is necessary to keep the balance information accurate
+    const updatePromises = processedTransactions.map((t) => {
+      // Always update the transaction balances to ensure they're correct
+      return updateTransactionInFirebase(t.id, {
+        accountBalances: t.accountBalances,
+        totalBalance: t.totalBalance,
+      });
+    });
+
+    await Promise.all(updatePromises);
+
+    // Update account balances in Firebase
+    const updatedAccounts = await updateAccountBalances(
+      accounts,
+      accountBalances,
+    );
+
+    // Return transaction ID, updated accounts, and processed transactions
+    return { id, updatedAccounts, processedTransactions };
+  },
+);
+
+export const addAccountThunk = createAsyncThunk(
+  "transactions/addAccount",
+  async (account) => {
+    return await addAccountToFirebase(account);
+  },
+);
+
+export const editAccountThunk = createAsyncThunk(
+  "transactions/editAccount",
+  async ({ id, ...updates }) => {
+    return await updateAccountInFirebase(id, updates);
+  },
+);
+
+export const deleteAccountThunk = createAsyncThunk(
+  "transactions/deleteAccount",
+  async (id, { getState }) => {
+    const { transactions } = getState().transactions;
+
+    // Don't allow deleting if account has transactions or if it's the cash account
+    const hasTransactions = transactions.some(
+      (t) => t.account === id || t.from === id || t.to === id,
+    );
+
+    if (!hasTransactions && id !== "cash") {
+      await deleteAccountFromFirebase(id);
+      return id;
+    } else {
+      throw new Error(
+        "Cannot delete account that has transactions or is the cash account",
+      );
+    }
+  },
+);
 
 const initialState = {
-  transactions: storedTransactions,
-  accounts: storedAccounts,
+  transactions: [],
+  accounts: [],
   sortOrder: "newest",
-  summary: calculateSummary(storedTransactions),
+  summary: { totalIncome: 0, totalExpense: 0 },
+  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  error: null,
 };
 
 export const transactionsSlice = createSlice({
   name: "transactions",
   initialState,
   reducers: {
-    addTransaction: (state, action) => {
-      state.transactions.push(action.payload);
-      // Sort transactions by transaction date
-      state.transactions.sort(
-        (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
-      );
-
-      // Recalculate balances
-      const { processedTransactions, accountBalances } = recalculateBalances(
-        state.transactions,
-        state.accounts,
-      );
-
-      state.transactions = processedTransactions;
-
-      // Update account balances
-      state.accounts = state.accounts.map((account) => ({
-        ...account,
-        balance: accountBalances[account.id] || 0,
-      }));
-
-      state.summary = calculateSummary(state.transactions);
-
-      // Save to localStorage
-      localStorage.setItem("transactions", JSON.stringify(state.transactions));
-      localStorage.setItem("accounts", JSON.stringify(state.accounts));
-    },
-
-    deleteTransaction: (state, action) => {
-      const id = action.payload;
-      state.transactions = state.transactions.filter((t) => t.id !== id);
-
-      // Recalculate balances
-      const { processedTransactions, accountBalances } = recalculateBalances(
-        state.transactions,
-        state.accounts,
-      );
-
-      state.transactions = processedTransactions;
-
-      // Update account balances
-      state.accounts = state.accounts.map((account) => ({
-        ...account,
-        balance: accountBalances[account.id] || 0,
-      }));
-
-      state.summary = calculateSummary(state.transactions);
-
-      // Save to localStorage
-      localStorage.setItem("transactions", JSON.stringify(state.transactions));
-      localStorage.setItem("accounts", JSON.stringify(state.accounts));
-    },
-
     toggleSortOrder: (state) => {
       state.sortOrder = state.sortOrder === "newest" ? "oldest" : "newest";
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch Transactions
+      .addCase(fetchTransactionsThunk.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(fetchTransactionsThunk.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.transactions = action.payload;
+        // Ensure transactions are sorted by date (oldest first)
+        state.transactions.sort(
+          (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+        );
+        state.summary = calculateSummary(action.payload);
+      })
+      .addCase(fetchTransactionsThunk.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.error.message;
+      })
 
-    addAccount: (state, action) => {
-      const newAccount = {
-        id: Date.now().toString(),
-        balance: 0,
-        ...action.payload,
-      };
+      // Fetch Accounts
+      .addCase(fetchAccountsThunk.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(fetchAccountsThunk.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.accounts = action.payload;
+      })
+      .addCase(fetchAccountsThunk.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.error.message;
+      })
 
-      state.accounts.push(newAccount);
+      // Add Transaction
+      .addCase(addTransactionThunk.fulfilled, (state, action) => {
+        state.transactions = action.payload.processedTransactions;
+        // Sort transactions by transaction date with newest transactions last
+        state.transactions.sort(
+          (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+        );
+        state.summary = calculateSummary(state.transactions);
+        state.accounts = action.payload.updatedAccounts;
+      })
 
-      // Save to localStorage
-      localStorage.setItem("accounts", JSON.stringify(state.accounts));
-    },
+      // Delete Transaction
+      .addCase(deleteTransactionThunk.fulfilled, (state, action) => {
+        state.transactions = action.payload.processedTransactions;
+        state.summary = calculateSummary(state.transactions);
+        state.accounts = action.payload.updatedAccounts;
+      })
 
-    editAccount: (state, action) => {
-      const { id, ...updates } = action.payload;
-      const accountIndex = state.accounts.findIndex(
-        (account) => account.id === id,
-      );
+      // Add Account
+      .addCase(addAccountThunk.fulfilled, (state, action) => {
+        state.accounts.push(action.payload);
+      })
 
-      if (accountIndex !== -1) {
-        // Don't allow changing the balance directly - it's calculated from transactions
-        const { ...accountUpdates } = updates; // const { balance, ...accountUpdates } = updates;
-        state.accounts[accountIndex] = {
-          ...state.accounts[accountIndex],
-          ...accountUpdates,
-        };
+      // Edit Account
+      .addCase(editAccountThunk.fulfilled, (state, action) => {
+        const index = state.accounts.findIndex(
+          (account) => account.id === action.payload.id,
+        );
+        if (index !== -1) {
+          state.accounts[index] = {
+            ...state.accounts[index],
+            ...action.payload,
+          };
+        }
+      })
 
-        // Save to localStorage
-        localStorage.setItem("accounts", JSON.stringify(state.accounts));
-      }
-    },
-
-    deleteAccount: (state, action) => {
-      const id = action.payload;
-
-      // Don't allow deleting if account has transactions
-      const hasTransactions = state.transactions.some(
-        (t) => t.account === id || t.from === id || t.to === id,
-      );
-
-      if (!hasTransactions && id !== "cash") {
-        // Don't allow deleting the cash account
-        state.accounts = state.accounts.filter((account) => account.id !== id);
-
-        // Save to localStorage
-        localStorage.setItem("accounts", JSON.stringify(state.accounts));
-      }
-    },
+      // Delete Account
+      .addCase(deleteAccountThunk.fulfilled, (state, action) => {
+        state.accounts = state.accounts.filter(
+          (account) => account.id !== action.payload,
+        );
+      });
   },
 });
 
-export const {
-  addTransaction,
-  deleteTransaction,
-  toggleSortOrder,
-  addAccount,
-  editAccount,
-  deleteAccount,
-} = transactionsSlice.actions;
+export const { toggleSortOrder } = transactionsSlice.actions;
 
 export const selectTransactions = (state) => state.transactions.transactions;
 export const selectAccounts = (state) => state.transactions.accounts;
@@ -232,5 +270,7 @@ export const selectTotalBalance = (state) =>
   );
 export const selectSummary = (state) => state.transactions.summary;
 export const selectSortOrder = (state) => state.transactions.sortOrder;
+export const selectTransactionsStatus = (state) => state.transactions.status;
+export const selectTransactionsError = (state) => state.transactions.error;
 
 export default transactionsSlice.reducer;

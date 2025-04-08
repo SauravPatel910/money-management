@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { RouterProvider } from "@tanstack/react-router";
-import { router } from "./routes";
+import { router } from "./routes/index.jsx";
 
 function App() {
   return (

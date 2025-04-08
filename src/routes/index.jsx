@@ -2,17 +2,14 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  Outlet,
 } from "@tanstack/react-router";
 import { lazy } from "react";
-import Layout, { LoadingComponent } from "./components/Layout";
+import Layout from "../components/layout/Layout.jsx";
 
 // Use lazy loading for better performance
-const HomePage = lazy(() => import("./pages/HomePage"));
-const AccountPage = lazy(() => import("./pages/AccountPage"));
-const TransactionHistoryPage = lazy(
-  () => import("./pages/TransactionHistoryPage"),
-);
+const Dashboard = lazy(() => import("../pages/Dashboard.jsx"));
+const Accounts = lazy(() => import("../pages/Accounts.jsx"));
+const Transactions = lazy(() => import("../pages/Transactions.jsx"));
 
 // Define the root route
 const rootRoute = createRootRoute({
@@ -23,19 +20,19 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: HomePage,
+  component: Dashboard,
 });
 
 const accountsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/accounts",
-  component: AccountPage,
+  component: Accounts,
 });
 
 const transactionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/transactions",
-  component: TransactionHistoryPage,
+  component: Transactions,
 });
 
 // Create router instance
@@ -45,4 +42,8 @@ const routeTree = rootRoute.addChildren([
   transactionsRoute,
 ]);
 
-export const router = createRouter({ routeTree });
+export function getRouter() {
+  return createRouter({ routeTree });
+}
+
+export const router = getRouter();
