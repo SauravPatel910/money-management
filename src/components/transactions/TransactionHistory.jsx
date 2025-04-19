@@ -202,9 +202,7 @@ const TransactionRow = memo(
     accounts,
   }) => {
     // Get account balances at the time of this transaction
-    // Use the transaction's own stored account balances, which represent the state AFTER this transaction
-    const cashBalanceAtTransaction = transaction.accountBalances?.cash || 0;
-    const bankBalanceAtTransaction = transaction.accountBalances?.bank || 0;
+
     const totalBalanceAtTransaction =
       transaction.totalBalance ||
       Object.values(transaction.accountBalances || {}).reduce(
@@ -253,42 +251,123 @@ const TransactionRow = memo(
         <td className="max-w-xs truncate px-4 py-3 text-sm">
           {transaction.note || "-"}
         </td>
-        <td className="px-4 py-3 text-sm">
-          <div className="space-y-1">
-            <div className="flex justify-between whitespace-nowrap">
-              <span className="mr-2 text-xs font-medium text-gray-600">
-                Cash:
-              </span>
-              <span className="text-xs font-medium text-primary-700">
-                ₹
-                {cashBalanceAtTransaction.toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                })}
-              </span>
+        <td className="group relative px-4 py-3 text-sm">
+          {/* Compact balance display with hover effect */}
+          <div className="relative">
+            {/* Default view - only show changed accounts + total */}
+            <div className="flex flex-col space-y-1">
+              {/* Only show accounts that were affected by this transaction */}
+              {(() => {
+                // Get accounts that were changed in this transaction
+                const changedAccounts = [];
+
+                // Add primary account if it exists
+                if (transaction.account) {
+                  changedAccounts.push(transaction.account);
+                }
+
+                // Add from/to accounts for transfers if they're different
+                if (transaction.type === "transfer") {
+                  if (
+                    transaction.from &&
+                    !changedAccounts.includes(transaction.from)
+                  ) {
+                    changedAccounts.push(transaction.from);
+                  }
+                  if (
+                    transaction.to &&
+                    !changedAccounts.includes(transaction.to)
+                  ) {
+                    changedAccounts.push(transaction.to);
+                  }
+                }
+
+                return changedAccounts.map((accountId) => (
+                  <div
+                    key={accountId}
+                    className="flex items-center justify-between whitespace-nowrap"
+                  >
+                    <span className="max-w-[80px] truncate text-xs font-medium text-gray-600">
+                      {getAccountName(accountId)}:
+                    </span>
+                    <span className="ml-1 text-xs font-medium text-primary-700">
+                      ₹
+                      {(
+                        transaction.accountBalances?.[accountId] || 0
+                      ).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                ));
+              })()}
+
+              {/* Total balance - always visible */}
+              <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-1 whitespace-nowrap">
+                <span className="text-xs font-semibold text-gray-700">
+                  Total:
+                </span>
+                <span className="text-xs font-bold text-primary-700">
+                  ₹
+                  {totalBalanceAtTransaction.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between whitespace-nowrap">
-              <span className="mr-2 text-xs font-medium text-gray-600">
-                {accounts.find((acc) => acc.id === "bank")?.name ||
-                  "Primary Bank"}
-                :
-              </span>
-              <span className="text-xs font-medium text-primary-700">
-                ₹
-                {bankBalanceAtTransaction.toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                })}
-              </span>
-            </div>
-            <div className="flex justify-between border-t border-gray-100 pt-1 whitespace-nowrap">
-              <span className="mr-2 text-xs font-medium text-gray-600">
-                Total:
-              </span>
-              <span className="text-xs font-bold text-primary-700">
-                ₹
-                {totalBalanceAtTransaction.toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                })}
-              </span>
+
+            {/* Hover tooltip with all account balances */}
+            <div className="invisible absolute top-0 right-0 z-50 min-w-[200px] origin-top-right transform rounded-md border border-primary-100 bg-white p-3 opacity-0 shadow-lg transition-all duration-200 group-hover:visible group-hover:opacity-100">
+              <div className="mb-2 flex items-center justify-between border-b border-primary-100 pb-1">
+                <span className="text-xs font-bold text-primary-600">
+                  Account
+                </span>
+                <span className="text-xs font-bold text-primary-600">
+                  Balance
+                </span>
+              </div>
+
+              <div className="max-h-[180px] space-y-2 overflow-y-auto pr-1">
+                {accounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between whitespace-nowrap"
+                  >
+                    <span className="text-xs font-medium text-gray-600">
+                      {account.name}:
+                    </span>
+                    <span
+                      className={`text-xs font-medium ${
+                        // Highlight accounts that were changed in this transaction
+                        transaction.account === account.id ||
+                        transaction.from === account.id ||
+                        transaction.to === account.id
+                          ? "font-semibold text-primary-700"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      ₹
+                      {(
+                        transaction.accountBalances?.[account.id] || 0
+                      ).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-2 flex items-center justify-between border-t border-primary-100 pt-2">
+                <span className="text-xs font-bold text-primary-700">
+                  Total:
+                </span>
+                <span className="text-xs font-bold text-primary-700">
+                  ₹
+                  {totalBalanceAtTransaction.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
             </div>
           </div>
         </td>

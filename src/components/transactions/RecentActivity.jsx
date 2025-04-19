@@ -12,7 +12,7 @@ const RecentActivity = ({ transactions, formatDate }) => {
   };
 
   // Get the 3 most recent transactions
-  const recentTransactions = transactions.slice(-3).reverse();
+  const recentTransactions = transactions.slice(-8).reverse();
 
   return (
     <div className="h-full rounded-2xl border-r-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
