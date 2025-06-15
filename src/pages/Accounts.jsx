@@ -3,6 +3,7 @@ import AccountManager from "../components/accounts/AccountManager";
 import { useAppData } from "../hooks/useAppData";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
+import Loading from "../components/UI/Loading";
 
 function Accounts() {
   const { status, error } = useAppData();
