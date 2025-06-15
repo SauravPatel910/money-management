@@ -23,137 +23,123 @@ const TransactionForm = ({
       })),
     [accounts],
   );
+  // Dynamic field generator with complex logic
+  const renderFields = useMemo(() => {
+    const { type } = form;
+    // Sort account options alphabetically by name
+    const accountOpts = [...accountOptions]
+      .map((opt) => opt.label)
+      .sort((a, b) => a.localeCompare(b));
 
-  // Common fields for all transaction types
-  const commonFields = useMemo(() => {
-    return [
-      <div className="mb-4" key="amount">
-        <Input
-          label="Amount"
-          name="amount"
-          type="number"
-          step="1.00"
-          value={form.amount}
-          onChange={handleInputChange}
-          placeholder="Enter amount"
-          required
-        />
-      </div>,
-      <div className="mb-4" key="date">
-        <Input
-          label="Date"
-          name="transactionDate"
-          type="date"
-          value={form.transactionDate}
-          onChange={handleInputChange}
-          required
-        />
-      </div>,
-    ];
-  }, [form.amount, form.transactionDate, handleInputChange]);
+    const fieldMap = {
+      // Common fields (always shown)
+      amount: {
+        component: Input,
+        label: "Amount",
+        type: "number",
+        step: "1.00",
+        placeholder: "Enter amount",
+        required: true,
+      },
+      transactionDate: {
+        component: Input,
+        label: "Date",
+        type: "date",
+        required: true,
+      },
 
-  // Type-specific fields
-  const typeSpecificFields = useMemo(() => {
-    const fields = []; // Fields specific to transaction types
-    if (form.type === "income" || form.type === "expense") {
-      fields.push(
-        <div className="mb-4" key="account">
-          <Select
-            label="Account"
-            name="account"
-            value={form.account || "cash"}
-            onChange={handleSelectChange}
-            options={accountOptions.map((option) => option.label)}
-            required
+      // Conditional fields based on transaction type
+      ...(["income", "expense"].includes(type) && {
+        account: {
+          component: Select,
+          label: "Account",
+          options: accountOpts,
+          defaultValue: "cash",
+          required: true,
+        },
+      }),
+      ...(type === "transfer" && {
+        from: {
+          component: Select,
+          label: "From Account",
+          options: accountOpts,
+          defaultValue: accountOpts[0],
+          required: true,
+        },
+        to: {
+          component: Select,
+          label: "To Account",
+          options: accountOpts.filter(
+            (opt) => opt !== (form.from || accountOpts[0]),
+          ),
+          defaultValue:
+            accountOpts.find((opt) => opt !== (form.from || accountOpts[0])) ||
+            accountOpts[1],
+          required: true,
+        },
+      }),
+
+      ...(type === "person" && {
+        direction: {
+          component: Select,
+          label: "Direction",
+          options: ["to", "from"],
+          defaultValue: "to",
+          required: true,
+        },
+        account: {
+          component: Select,
+          label: "Account",
+          options: accountOpts,
+          defaultValue: "cash",
+          required: true,
+        },
+        person: {
+          component: Input,
+          label: "Person's Name",
+          type: "text",
+          placeholder: "Enter person's name",
+          required: true,
+        },
+      }),
+
+      // Note field (always shown last)
+      note: {
+        component: Input,
+        label: "Note (Optional)",
+        type: "text",
+        placeholder: "Add a note",
+      },
+    };
+
+    return Object.entries(fieldMap).map(([name, config]) => {
+      const Component = config.component;
+      const isNote = name === "note";
+      const value = form[name] || config.defaultValue || "";
+      const onChange =
+        Component === Select ? handleSelectChange : handleInputChange;
+
+      if (config.label && config.options) {
+        console.log(config.label, config.options);
+      }
+
+      return (
+        <div className={isNote ? "mb-6" : "mb-4"} key={name}>
+          <Component
+            label={config.label}
+            name={name}
+            value={value}
+            onChange={onChange}
+            {...(config.type && { type: config.type })}
+            {...(config.step && { step: config.step })}
+            {...(config.placeholder && { placeholder: config.placeholder })}
+            {...(config.options && { options: config.options })}
+            {...(config.required && { required: config.required })}
           />
-        </div>,
+        </div>
       );
-    } else if (form.type === "transfer") {
-      fields.push(
-        <div className="mb-4" key="from">
-          <Select
-            label="From Account"
-            name="from"
-            value={form.from || "cash"}
-            onChange={handleSelectChange}
-            options={accountOptions.map((option) => option.label)}
-            required
-          />
-        </div>,
-        <div className="mb-4" key="to">
-          <Select
-            label="To Account"
-            name="to"
-            value={form.to || "bank"}
-            onChange={handleSelectChange}
-            options={accountOptions.map((option) => option.label)}
-            required
-          />
-        </div>,
-      );
-    } else if (form.type === "person") {
-      fields.push(
-        <div className="mb-4" key="direction">
-          <Select
-            label="Direction"
-            name="direction"
-            value={form.direction || "to"}
-            onChange={handleSelectChange}
-            options={["to", "from"]}
-            required
-          />
-        </div>,
-        <div className="mb-4" key="account">
-          <Select
-            label="Account"
-            name="account"
-            value={form.account || "cash"}
-            onChange={handleSelectChange}
-            options={accountOptions.map((option) => option.label)}
-            required
-          />
-        </div>,
-        <div className="mb-4" key="person">
-          <Input
-            label="Person's Name"
-            name="person"
-            type="text"
-            value={form.person || ""}
-            onChange={handleInputChange}
-            placeholder="Enter person's name"
-            required
-          />
-        </div>,
-      );
-    }
-
-    // Note field for all transaction types
-    fields.push(
-      <div className="mb-6" key="note">
-        <Input
-          label="Note (Optional)"
-          name="note"
-          type="text"
-          value={form.note || ""}
-          onChange={handleInputChange}
-          placeholder="Add a note"
-        />
-      </div>,
-    );
-
-    return fields;
-  }, [
-    form.type,
-    form.account,
-    form.from,
-    form.to,
-    form.direction,
-    form.person,
-    form.note,
-    accountOptions,
-    handleInputChange,
-    handleSelectChange,
-  ]);
+    });
+  }, [form, accountOptions, handleInputChange, handleSelectChange]);
 
   const addTransactionIcon = (
     <svg
@@ -278,8 +264,7 @@ const TransactionForm = ({
           </div>
         </div>
 
-        {commonFields}
-        {typeSpecificFields}
+        {renderFields}
 
         <div>
           <Button variant="action" htmlType="submit" icon={addTransactionIcon}>
