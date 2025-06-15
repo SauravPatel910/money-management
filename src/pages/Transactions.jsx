@@ -10,6 +10,7 @@ import { useCommonUtils } from "../hooks/useCommonUtils";
 import TransactionHistory from "../components/transactions/TransactionHistory";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
+import Loading from "../components/UI/Loading";
 
 function TransactionHistoryPage() {
   const { transactions, dispatch, status, error } = useAppData();
