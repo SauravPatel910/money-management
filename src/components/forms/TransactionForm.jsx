@@ -31,7 +31,7 @@ const TransactionForm = ({
           label="Amount"
           name="amount"
           type="number"
-          step="0.01"
+          step="1.00"
           value={form.amount}
           onChange={handleInputChange}
           placeholder="Enter amount"
@@ -53,70 +53,41 @@ const TransactionForm = ({
 
   // Type-specific fields
   const typeSpecificFields = useMemo(() => {
-    const fields = [];
-
-    // Fields specific to transaction types
+    const fields = []; // Fields specific to transaction types
     if (form.type === "income" || form.type === "expense") {
       fields.push(
         <div className="mb-4" key="account">
-          <label className="mb-2 block text-sm font-medium text-primary-700">
-            Account
-          </label>
-          <select
+          <Select
+            label="Account"
             name="account"
-            id="account"
             value={form.account || "cash"}
             onChange={handleSelectChange}
+            options={accountOptions.map((option) => option.value)}
             required
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-          >
-            {accountOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>,
       );
     } else if (form.type === "transfer") {
       fields.push(
         <div className="mb-4" key="from">
-          <label className="mb-2 block text-sm font-medium text-primary-700">
-            From Account
-          </label>
-          <select
+          <Select
+            label="From Account"
             name="from"
-            id="from"
             value={form.from || "cash"}
             onChange={handleSelectChange}
+            options={accountOptions.map((option) => option.value)}
             required
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-          >
-            {accountOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>,
         <div className="mb-4" key="to">
-          <label className="mb-2 block text-sm font-medium text-primary-700">
-            To Account
-          </label>
-          <select
+          <Select
+            label="To Account"
             name="to"
-            id="to"
             value={form.to || "bank"}
             onChange={handleSelectChange}
+            options={accountOptions.map((option) => option.value)}
             required
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-          >
-            {accountOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>,
       );
     } else if (form.type === "person") {
@@ -132,23 +103,14 @@ const TransactionForm = ({
           />
         </div>,
         <div className="mb-4" key="account">
-          <label className="mb-2 block text-sm font-medium text-primary-700">
-            Account
-          </label>
-          <select
+          <Select
+            label="Account"
             name="account"
-            id="account"
             value={form.account || "cash"}
             onChange={handleSelectChange}
+            options={accountOptions.map((option) => option.value)}
             required
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-          >
-            {accountOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>,
         <div className="mb-4" key="person">
           <Input
