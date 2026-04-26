@@ -38,3 +38,49 @@ export type AccountInput = {
   owner?: string | null;
   icon?: string;
 };
+
+export type Summary = {
+  totalIncome: number;
+  totalExpense: number;
+};
+
+export type TransactionFormFieldName =
+  | "type"
+  | "amount"
+  | "account"
+  | "from"
+  | "to"
+  | "direction"
+  | "person"
+  | "note"
+  | "transactionDate"
+  | "transactionTime"
+  | "entryDate"
+  | "entryTime";
+
+export type TransactionFormState = {
+  type: TransactionType;
+  amount: string | number;
+  account?: string;
+  from?: string;
+  to?: string;
+  direction?: PersonDirection;
+  person?: string;
+  note: string;
+  transactionDate: string;
+  transactionTime: string;
+  entryDate: string;
+  entryTime: string;
+};
+
+export type NewTransactionFormState = Omit<TransactionFormState, "amount"> & {
+  amount: string;
+};
+
+export type EditTransactionFormState = TransactionFormState;
+
+export type AccountFormState = {
+  name: string;
+  owner?: string | null;
+  icon: string;
+};

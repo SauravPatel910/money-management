@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { Suspense } from "react";
+import type { ReactNode } from "react";
 
 // Create a loading component
 const LoadingComponent = () => (
@@ -7,7 +7,7 @@ const LoadingComponent = () => (
 );
 
 // Layout component with common structure
-function Layout({ children }) {
+function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-100 to-primary-200 px-4 py-10">
       <div className="mx-auto max-w-6xl">

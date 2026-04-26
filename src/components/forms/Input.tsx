@@ -1,17 +1,29 @@
-// @ts-nocheck
 import { memo } from "react";
+import type { ChangeEventHandler, HTMLInputTypeAttribute } from "react";
+
+type InputProps = {
+  label: string;
+  name: string;
+  type?: HTMLInputTypeAttribute;
+  value: string | number;
+  onChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  placeholder?: string;
+  required?: boolean;
+  step?: string;
+  disabled?: boolean;
+};
 
 const Input = ({
   label,
   name,
-  type,
+  type = "text",
   value,
   onChange,
   placeholder,
   required,
   step,
   disabled = false,
-}) => {
+}: InputProps) => {
   return (
     <>
       <label

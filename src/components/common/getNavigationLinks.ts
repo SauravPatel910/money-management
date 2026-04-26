@@ -1,7 +1,13 @@
 type NavigationPage = "dashboard" | "accounts" | "transactions";
 
+export type NavigationLink = {
+  to: string;
+  text: string;
+  key?: string;
+};
+
 export const getNavigationLinks = (currentPage: NavigationPage) => {
-  const allLinks = {
+  const allLinks: Record<NavigationPage, NavigationLink> = {
     dashboard: { to: "/", text: "Dashboard" },
     accounts: { to: "/accounts", text: "Manage Accounts" },
     transactions: { to: "/transactions", text: "Transaction History" },

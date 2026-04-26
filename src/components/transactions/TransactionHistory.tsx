@@ -1,7 +1,21 @@
-// @ts-nocheck
 import { memo } from "react";
-import { useSelector } from "react-redux";
+import { useAppSelector } from "../../config/reduxStore";
 import { selectAccounts } from "../../store/transactionsSlice";
+import type { Account, MoneyTransaction } from "../../types/money";
+
+type SortOrder = "newest" | "oldest";
+type FormatDate = (dateString: string, timeString?: string) => string;
+type GetAccountName = (accountId: string) => string;
+
+type TransactionHistoryProps = {
+  transactions: MoneyTransaction[];
+  sortOrder: SortOrder;
+  toggleSortOrder: () => void;
+  formatDate: FormatDate;
+  editTransaction?: (transaction: MoneyTransaction) => void;
+  deleteTransaction: (id: string) => void;
+  sortTransactions: () => MoneyTransaction[];
+};
 
 const TransactionHistory = ({
   transactions,
@@ -11,17 +25,17 @@ const TransactionHistory = ({
   editTransaction,
   deleteTransaction,
   sortTransactions,
-}) => {
-  const accounts = useSelector(selectAccounts);
+}: TransactionHistoryProps) => {
+  const accounts = useAppSelector(selectAccounts);
 
   // Get account name from ID
-  const getAccountName = (accountId) => {
+  const getAccountName: GetAccountName = (accountId) => {
     const account = accounts.find((acc) => acc.id === accountId);
     return account ? account.name : accountId;
   };
 
   // Get sorted transactions
-  const sortedTransactions = sortTransactions(transactions);
+  const sortedTransactions = sortTransactions();
 
   return (
     <div className="rounded-2xl border-t-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
@@ -120,7 +134,7 @@ const TransactionHistory = ({
 };
 
 // Function to get the background color based on transaction type
-const getRowBackgroundColor = (transaction) => {
+const getRowBackgroundColor = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "bg-gradient-to-r from-income-light/20 to-transparent";
   } else if (transaction.type === "expense") {
@@ -136,7 +150,7 @@ const getRowBackgroundColor = (transaction) => {
 };
 
 // Function to get the type badge styles
-const getTypeBadgeStyles = (transaction) => {
+const getTypeBadgeStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "bg-gradient-to-r from-income to-income-dark text-white";
   } else if (transaction.type === "expense") {
@@ -152,7 +166,10 @@ const getTypeBadgeStyles = (transaction) => {
 };
 
 // Function to get transaction details
-const getTransactionDetails = (transaction, getAccountName) => {
+const getTransactionDetails = (
+  transaction: MoneyTransaction,
+  getAccountName: GetAccountName,
+) => {
   if (transaction.type === "income" || transaction.type === "expense") {
     return getAccountName(transaction.account || "cash");
   } else if (transaction.type === "transfer") {
@@ -166,7 +183,7 @@ const getTransactionDetails = (transaction, getAccountName) => {
 };
 
 // Function to get amount display styles
-const getAmountStyles = (transaction) => {
+const getAmountStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "text-income-dark";
   } else if (transaction.type === "expense") {
@@ -182,7 +199,7 @@ const getAmountStyles = (transaction) => {
 };
 
 // Function to get amount prefix (+ or -)
-const getAmountPrefix = (transaction) => {
+const getAmountPrefix = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "+";
   } else if (transaction.type === "expense") {
@@ -204,6 +221,13 @@ const TransactionRow = memo(
     deleteTransaction,
     getAccountName,
     accounts,
+  }: {
+    transaction: MoneyTransaction;
+    formatDate: FormatDate;
+    editTransaction?: (transaction: MoneyTransaction) => void;
+    deleteTransaction: (id: string) => void;
+    getAccountName: GetAccountName;
+    accounts: Account[];
   }) => {
     // Get account balances at the time of this transaction
 
@@ -263,7 +287,7 @@ const TransactionRow = memo(
               {/* Only show accounts that were affected by this transaction */}
               {(() => {
                 // Get accounts that were changed in this transaction
-                const changedAccounts = [];
+                const changedAccounts: string[] = [];
 
                 // Add primary account if it exists
                 if (transaction.account) {

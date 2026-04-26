@@ -1,7 +1,7 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import type { ChangeEvent, SubmitEventHandler } from "react";
 import { addTransactionThunk } from "../store/transactionsSlice";
 import { useAppData } from "../hooks/useAppData";
 import { useCommonUtils } from "../hooks/useCommonUtils";
@@ -12,8 +12,14 @@ import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
+import type {
+  NewTransactionFormState,
+  TransactionFormFieldName,
+  TransactionInput,
+  TransactionType,
+} from "../types/money";
 
-const hiddenAutomaticDateTimeFields = [
+const hiddenAutomaticDateTimeFields: TransactionFormFieldName[] = [
   "transactionTime",
   "entryDate",
   "entryTime",
@@ -24,7 +30,7 @@ function Dashboard() {
   const { formatDate } = useCommonUtils();
   const currentDateTime = getCurrentIstDateTimeInputs();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<NewTransactionFormState>({
     type: "income",
     amount: "",
     transactionDate: currentDateTime.date,
@@ -53,14 +59,14 @@ function Dashboard() {
   }, []);
 
   // Memoized function for handling input changes
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prevForm) => ({ ...prevForm, [name]: value }));
   }, []);
 
   // Memoized function for handling type changes
   const handleTypeChange = useCallback(
-    (type) => {
+    (type: TransactionType) => {
       setForm((prevForm) => {
         const newForm = { ...prevForm, type };
 
@@ -91,22 +97,26 @@ function Dashboard() {
 
   // Memoized function for handling select changes
   const handleSelectChange = useCallback(
-    (e) => {
+    (e: ChangeEvent<HTMLSelectElement>) => {
       const { name, value } = e.target;
-      setForm((prevForm) => ({ ...prevForm, [name]: value }));
+      setForm((prevForm) => {
+        const nextForm = { ...prevForm, [name]: value };
 
-      if (name === "from" && value === form.to) {
-        setForm((prevForm) => ({ ...prevForm, to: prevForm.from }));
-      } else if (name === "to" && value === form.from) {
-        setForm((prevForm) => ({ ...prevForm, from: prevForm.to }));
-      }
+        if (name === "from" && value === prevForm.to) {
+          nextForm.to = prevForm.from;
+        } else if (name === "to" && value === prevForm.from) {
+          nextForm.from = prevForm.to;
+        }
+
+        return nextForm;
+      });
     },
-    [form.to, form.from],
+    [],
   );
 
   // Memoized function for adding transactions
   const handleAddTransaction = useCallback(
-    (e) => {
+    (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0]) => {
       e.preventDefault();
       const amount = parseFloat(form.amount);
 
@@ -115,7 +125,8 @@ function Dashboard() {
         return;
       }
 
-      const getAccount = (id) => accounts.find((acc) => acc.id === id);
+      const getAccount = (id?: string) =>
+        accounts.find((acc) => acc.id === id);
 
       if (form.type === "transfer") {
         if (form.from === form.to) {
@@ -155,7 +166,7 @@ function Dashboard() {
       }
 
       const latestDateTime = getCurrentIstDateTimeInputs();
-      const newTransaction = {
+      const newTransaction: TransactionInput = {
         ...form,
         amount,
         transactionTime: latestDateTime.time,

@@ -1,13 +1,21 @@
-// @ts-nocheck
 import { memo } from "react";
-import { useSelector } from "react-redux";
+import { useAppSelector } from "../../config/reduxStore";
 import { selectAccounts } from "../../store/transactionsSlice";
+import type { MoneyTransaction } from "../../types/money";
 
-const RecentActivity = ({ transactions, formatDate }) => {
-  const accounts = useSelector(selectAccounts);
+type FormatDate = (dateString: string, timeString?: string) => string;
+type GetAccountName = (accountId: string) => string;
+
+type RecentActivityProps = {
+  transactions: MoneyTransaction[];
+  formatDate: FormatDate;
+};
+
+const RecentActivity = ({ transactions, formatDate }: RecentActivityProps) => {
+  const accounts = useAppSelector(selectAccounts);
 
   // Get account name from ID
-  const getAccountName = (accountId) => {
+  const getAccountName: GetAccountName = (accountId) => {
     const account = accounts.find((acc) => acc.id === accountId);
     return account ? account.name : accountId;
   };
@@ -63,7 +71,7 @@ const RecentActivity = ({ transactions, formatDate }) => {
 };
 
 // Function to get activity item background and border colors
-const getActivityItemStyles = (transaction) => {
+const getActivityItemStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "border-l-4 border-income bg-gradient-to-r from-income-light/40 to-white";
   } else if (transaction.type === "expense") {
@@ -79,7 +87,7 @@ const getActivityItemStyles = (transaction) => {
 };
 
 // Function to get activity icon background colors
-const getActivityIconStyles = (transaction) => {
+const getActivityIconStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "bg-gradient-to-br from-income to-income-dark text-white";
   } else if (transaction.type === "expense") {
@@ -95,7 +103,7 @@ const getActivityIconStyles = (transaction) => {
 };
 
 // Function to get activity amount text color
-const getActivityAmountStyles = (transaction) => {
+const getActivityAmountStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "text-income-dark";
   } else if (transaction.type === "expense") {
@@ -111,7 +119,7 @@ const getActivityAmountStyles = (transaction) => {
 };
 
 // Function to get amount prefix (+ or -)
-const getAmountPrefix = (transaction) => {
+const getAmountPrefix = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "+";
   } else if (transaction.type === "expense") {
@@ -125,7 +133,10 @@ const getAmountPrefix = (transaction) => {
 };
 
 // Function to get transaction description
-const getTransactionDescription = (transaction, getAccountName) => {
+const getTransactionDescription = (
+  transaction: MoneyTransaction,
+  getAccountName: GetAccountName,
+) => {
   if (transaction.type === "income" || transaction.type === "expense") {
     return getAccountName(transaction.account || "cash");
   } else if (transaction.type === "transfer") {
@@ -139,7 +150,14 @@ const getTransactionDescription = (transaction, getAccountName) => {
 };
 
 // Memoized individual activity item component
-const ActivityItem = memo(({ transaction, formatDate, getAccountName }) => {
+type ActivityItemProps = {
+  transaction: MoneyTransaction;
+  formatDate: FormatDate;
+  getAccountName: GetAccountName;
+};
+
+const ActivityItem = memo(
+  ({ transaction, formatDate, getAccountName }: ActivityItemProps) => {
   return (
     <div
       className={`flex transform items-center justify-between rounded-xl p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${getActivityItemStyles(
@@ -211,7 +229,8 @@ const ActivityItem = memo(({ transaction, formatDate, getAccountName }) => {
       </div>
     </div>
   );
-});
+  },
+);
 
 // Export memoized component
 export default memo(RecentActivity);

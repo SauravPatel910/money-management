@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { memo, useState, useCallback } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import type { ChangeEvent, SubmitEventHandler } from "react";
+import { useAppDispatch, useAppSelector } from "../../config/reduxStore";
 import {
   selectAccounts,
   addAccountThunk,
@@ -8,9 +8,15 @@ import {
   deleteAccountThunk,
 } from "../../store/transactionsSlice";
 import Input from "../forms/Input";
+import type { Account, AccountFormState } from "../../types/money";
+
+type AccountInputChangeHandler = (
+  e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  id?: string | null,
+) => void;
 
 // Account icon components
-const AccountIcon = memo(({ type }) => {
+const AccountIcon = memo(({ type }: { type: string }) => {
   switch (type) {
     case "cash":
       return (
@@ -136,7 +142,17 @@ const AccountTypeOptions = memo(() => (
 
 // Add Account Form Component
 const AddAccountForm = memo(
-  ({ newAccount, handleInputChange, handleAddAccount, onCancel }) => (
+  ({
+    newAccount,
+    handleInputChange,
+    handleAddAccount,
+    onCancel,
+  }: {
+    newAccount: AccountFormState;
+    handleInputChange: AccountInputChangeHandler;
+    handleAddAccount: SubmitEventHandler<HTMLFormElement>;
+    onCancel: () => void;
+  }) => (
     <div className="mb-6 rounded-lg border border-primary-100 bg-primary-50/50 p-4">
       <h4 className="mb-3 text-lg font-medium text-primary-700">
         Add New Account
@@ -199,7 +215,20 @@ const AddAccountForm = memo(
 
 // Edit Account Form Component
 const EditAccountForm = memo(
-  ({ account, handleInputChange, handleEditAccount, onCancel }) => {
+  ({
+    account,
+    handleInputChange,
+    handleEditAccount,
+    onCancel,
+  }: {
+    account: Account;
+    handleInputChange: AccountInputChangeHandler;
+    handleEditAccount: (
+      e: Parameters<SubmitEventHandler<HTMLFormElement>>[0],
+      id: string,
+    ) => void;
+    onCancel: () => void;
+  }) => {
     // Get the account from the parent component's state
     return (
       <form onSubmit={(e) => handleEditAccount(e, account.id)}>
@@ -261,7 +290,16 @@ const EditAccountForm = memo(
 );
 
 // Account Card Component
-const AccountCard = memo(({ account, onEdit, onDelete }) => (
+const AccountCard = memo(
+  ({
+    account,
+    onEdit,
+    onDelete,
+  }: {
+    account: Account;
+    onEdit: () => void;
+    onDelete: () => void;
+  }) => (
   <div className="flex items-center justify-between">
     <div className="flex items-center">
       <div className="mr-3 rounded-full bg-primary-100 p-2">
@@ -315,20 +353,26 @@ const AccountCard = memo(({ account, onEdit, onDelete }) => (
       )}
     </div>
   </div>
-));
+  ),
+);
 
 const AccountManager = () => {
-  const accounts = useSelector(selectAccounts);
-  const dispatch = useDispatch();
+  const accounts = useAppSelector(selectAccounts);
+  const dispatch = useAppDispatch();
   const [isAddingAccount, setIsAddingAccount] = useState(false);
-  const [editingAccountId, setEditingAccountId] = useState(null);
-  const [newAccount, setNewAccount] = useState({ name: "", icon: "bank" });
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [newAccount, setNewAccount] = useState<AccountFormState>({
+    name: "",
+    icon: "bank",
+  });
   // Add state to track edited accounts locally
-  const [editingAccounts, setEditingAccounts] = useState({});
+  const [editingAccounts, setEditingAccounts] = useState<
+    Record<string, Account>
+  >({});
 
   // Memoized callbacks
   const handleAddAccount = useCallback(
-    (e) => {
+    (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0]) => {
       e.preventDefault();
 
       if (!newAccount.name.trim()) {
@@ -351,11 +395,18 @@ const AccountManager = () => {
   );
 
   const handleEditAccount = useCallback(
-    (e, id) => {
+    (
+      e: Parameters<SubmitEventHandler<HTMLFormElement>>[0],
+      id: string,
+    ) => {
       e.preventDefault();
       // Get the locally edited account values
       const accountToEdit =
         editingAccounts[id] || accounts.find((acc) => acc.id === id);
+
+      if (!accountToEdit) {
+        return;
+      }
 
       if (!accountToEdit.name.trim()) {
         alert("Please enter an account name");
@@ -383,7 +434,7 @@ const AccountManager = () => {
   );
 
   const handleDeleteAccount = useCallback(
-    (id) => {
+    (id: string) => {
       const account = accounts.find((acc) => acc.id === id);
 
       if (id === "cash") {
@@ -393,7 +444,7 @@ const AccountManager = () => {
 
       if (
         confirm(
-          `Are you sure you want to delete the account "${account.name}"?`,
+          `Are you sure you want to delete the account "${account?.name || id}"?`,
         )
       ) {
         dispatch(deleteAccountThunk(id))
@@ -401,7 +452,7 @@ const AccountManager = () => {
           .then(() => {
             // Success case handled automatically
           })
-          .catch((error) => {
+          .catch((error: Error) => {
             // This will be called if the account has transactions
             alert(
               error.message || "Cannot delete account that has transactions",
@@ -413,13 +464,19 @@ const AccountManager = () => {
   );
 
   const handleInputChange = useCallback(
-    (e, id = null) => {
+    (
+      e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+      id: string | null = null,
+    ) => {
       const { name, value } = e.target;
 
       if (id) {
         // Editing existing account - update temporarily in local component state
         setEditingAccounts((prev) => {
           const account = prev[id] || accounts.find((acc) => acc.id === id);
+          if (!account) {
+            return prev;
+          }
           return {
             ...prev,
             [id]: {

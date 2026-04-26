@@ -1,8 +1,8 @@
-// @ts-nocheck
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import type { ChangeEvent, SubmitEventHandler } from "react";
+import { useAppSelector } from "../config/reduxStore";
 import {
   toggleSortOrder as toggleSortOrderAction,
   deleteTransactionThunk,
@@ -18,8 +18,14 @@ import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
+import type {
+  EditTransactionFormState,
+  MoneyTransaction,
+  TransactionFormFieldName,
+  TransactionType,
+} from "../types/money";
 
-const hiddenAutomaticDateTimeFields = [
+const hiddenAutomaticDateTimeFields: TransactionFormFieldName[] = [
   "transactionTime",
   "entryDate",
   "entryTime",
@@ -28,9 +34,13 @@ const hiddenAutomaticDateTimeFields = [
 function TransactionHistoryPage() {
   const { transactions, accounts, dispatch, status, error } = useAppData();
   const { formatDate } = useCommonUtils();
-  const sortOrder = useSelector(selectSortOrder);
-  const [editingTransactionId, setEditingTransactionId] = useState(null);
-  const [editForm, setEditForm] = useState(null);
+  const sortOrder = useAppSelector(selectSortOrder);
+  const [editingTransactionId, setEditingTransactionId] = useState<
+    string | null
+  >(null);
+  const [editForm, setEditForm] = useState<EditTransactionFormState | null>(
+    null,
+  );
 
   useEffect(() => {
     if (editingTransactionId == null) {
@@ -62,7 +72,7 @@ function TransactionHistoryPage() {
   }, [dispatch]);
 
   const handleDeleteTransaction = useCallback(
-    (id) => {
+    (id: string) => {
       if (confirm("Are you sure you want to delete this transaction?")) {
         if (editingTransactionId === id) {
           setEditingTransactionId(null);
@@ -74,34 +84,37 @@ function TransactionHistoryPage() {
     [dispatch, editingTransactionId],
   );
 
-  const normalizeTransactionForEdit = useCallback((transaction) => {
-    const latestDateTime = getCurrentIstDateTimeInputs();
-    const form = {
-      type: transaction.type,
-      amount: transaction.amount,
-      transactionDate: transaction.transactionDate,
-      transactionTime: latestDateTime.time,
-      entryDate: latestDateTime.date,
-      entryTime: latestDateTime.time,
-      note: transaction.note || "",
-    };
+  const normalizeTransactionForEdit = useCallback(
+    (transaction: MoneyTransaction): EditTransactionFormState => {
+      const latestDateTime = getCurrentIstDateTimeInputs();
+      const form: EditTransactionFormState = {
+        type: transaction.type,
+        amount: transaction.amount,
+        transactionDate: transaction.transactionDate,
+        transactionTime: latestDateTime.time,
+        entryDate: latestDateTime.date,
+        entryTime: latestDateTime.time,
+        note: transaction.note || "",
+      };
 
-    if (transaction.type === "income" || transaction.type === "expense") {
-      form.account = transaction.account || "cash";
-    } else if (transaction.type === "transfer") {
-      form.from = transaction.from || "cash";
-      form.to = transaction.to || "bank";
-    } else if (transaction.type === "person") {
-      form.direction = transaction.direction || "to";
-      form.account = transaction.account || "cash";
-      form.person = transaction.person || "";
-    }
+      if (transaction.type === "income" || transaction.type === "expense") {
+        form.account = transaction.account || "cash";
+      } else if (transaction.type === "transfer") {
+        form.from = transaction.from || "cash";
+        form.to = transaction.to || "bank";
+      } else if (transaction.type === "person") {
+        form.direction = transaction.direction || "to";
+        form.account = transaction.account || "cash";
+        form.person = transaction.person || "";
+      }
 
-    return form;
-  }, []);
+      return form;
+    },
+    [],
+  );
 
   const handleStartEdit = useCallback(
-    (transaction) => {
+    (transaction: MoneyTransaction) => {
       setEditingTransactionId(transaction.id);
       setEditForm(normalizeTransactionForEdit(transaction));
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -114,14 +127,22 @@ function TransactionHistoryPage() {
     setEditForm(null);
   }, []);
 
-  const handleEditInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setEditForm((prevForm) => ({ ...prevForm, [name]: value }));
-  }, []);
+  const handleEditInputChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setEditForm((prevForm) =>
+        prevForm ? { ...prevForm, [name]: value } : prevForm,
+      );
+    },
+    [],
+  );
 
   const handleEditTypeChange = useCallback(
-    (type) => {
+    (type: TransactionType) => {
       setEditForm((prevForm) => {
+        if (!prevForm) {
+          return prevForm;
+        }
         const newForm = { ...prevForm, type };
 
         if (type === "income" || type === "expense") {
@@ -154,9 +175,12 @@ function TransactionHistoryPage() {
   );
 
   const handleEditSelectChange = useCallback(
-    (e) => {
+    (e: ChangeEvent<HTMLSelectElement>) => {
       const { name, value } = e.target;
       setEditForm((prevForm) => {
+        if (!prevForm) {
+          return prevForm;
+        }
         const nextForm = { ...prevForm, [name]: value };
 
         if (name === "from" && value === prevForm.to) {
@@ -172,9 +196,13 @@ function TransactionHistoryPage() {
   );
 
   const handleUpdateTransaction = useCallback(
-    (e) => {
+    (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0]) => {
       e.preventDefault();
-      const amount = parseFloat(editForm.amount);
+      if (!editForm || !editingTransactionId) {
+        return;
+      }
+
+      const amount = parseFloat(String(editForm.amount));
 
       if (amount <= 0) {
         alert("Please enter a valid amount greater than 0");

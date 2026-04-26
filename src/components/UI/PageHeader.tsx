@@ -1,7 +1,12 @@
-// @ts-nocheck
 import Link from "next/link";
+import type { NavigationLink } from "../common/getNavigationLinks";
 
-const PageHeader = ({ title, links = [] }) => {
+type PageHeaderProps = {
+  title: string;
+  links?: NavigationLink[];
+};
+
+const PageHeader = ({ title, links = [] }: PageHeaderProps) => {
   return (
     <div className="mb-4 flex items-center justify-between">
       <h1 className="text-2xl font-bold text-primary-800">{title}</h1>

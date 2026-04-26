@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import BalanceCard from "../components/accounts/BalanceCard";

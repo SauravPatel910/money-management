@@ -1,14 +1,15 @@
-// @ts-nocheck
 import { memo } from "react";
-import { useSelector } from "react-redux";
+import type { ReactNode } from "react";
+import { useAppSelector } from "../../config/reduxStore";
 import {
   selectAccounts,
   selectTotalBalance,
   selectSummary,
 } from "../../store/transactionsSlice";
+import type { Account } from "../../types/money";
 
 // Extract account icon component to optimize rendering
-const AccountIcon = memo(({ type }) => {
+const AccountIcon = memo(({ type }: { type: string }) => {
   switch (type) {
     case "cash":
       return (
@@ -129,14 +130,21 @@ const AccountIcon = memo(({ type }) => {
 });
 
 // Optimized currency formatter to avoid recreating in each component
-const formatCurrency = (amount) => {
+const formatCurrency = (amount: number) => {
   return amount.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
   });
 };
 
 // Summary card component for income, expense, and cash
-const SummaryCard = memo(({ type, title, amount, icon }) => {
+type SummaryCardProps = {
+  type: "income" | "expense" | "cash";
+  title: string;
+  amount: number;
+  icon: ReactNode;
+};
+
+const SummaryCard = memo(({ type, title, amount, icon }: SummaryCardProps) => {
   return (
     <div
       className={`col-span-1 flex rounded-2xl ${
@@ -174,7 +182,7 @@ const SummaryCard = memo(({ type, title, amount, icon }) => {
 });
 
 // Account card component
-const AccountCard = memo(({ account }) => {
+const AccountCard = memo(({ account }: { account: Account }) => {
   return (
     <div
       key={account.id}
@@ -206,9 +214,9 @@ const AccountCard = memo(({ account }) => {
 });
 
 const BalanceCard = () => {
-  const accounts = useSelector(selectAccounts);
-  const totalBalance = useSelector(selectTotalBalance);
-  const summary = useSelector(selectSummary);
+  const accounts = useAppSelector(selectAccounts);
+  const totalBalance = useAppSelector(selectTotalBalance);
+  const summary = useAppSelector(selectSummary);
 
   // Income and expense icons
   const incomeIcon = (

@@ -1,5 +1,12 @@
-// @ts-nocheck
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import type { RootState } from "../config/reduxStore";
+import type {
+  Account,
+  AccountInput,
+  MoneyTransaction,
+  Summary,
+  TransactionInput,
+} from "../types/money";
 import {
   fetchTransactions,
   fetchAccounts,
@@ -11,6 +18,20 @@ import {
   deleteAccount,
   calculateSummary,
 } from "../services/moneyService";
+
+type SortOrder = "newest" | "oldest";
+type RequestStatus = "idle" | "loading" | "succeeded" | "failed";
+
+type TransactionsState = {
+  transactions: MoneyTransaction[];
+  accounts: Account[];
+  sortOrder: SortOrder;
+  summary: Summary;
+  status: RequestStatus;
+  error: string | null;
+};
+
+type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
 
 // Create async thunks for server-backed operations
 export const fetchTransactionsThunk = createAsyncThunk(
@@ -29,7 +50,7 @@ export const fetchAccountsThunk = createAsyncThunk(
 
 export const addTransactionThunk = createAsyncThunk(
   "transactions/addTransaction",
-  async (transaction) => {
+  async (transaction: TransactionInput) => {
     await addTransaction(transaction);
     const [processedTransactions, updatedAccounts] = await Promise.all([
       fetchTransactions(),
@@ -41,7 +62,7 @@ export const addTransactionThunk = createAsyncThunk(
 
 export const updateTransactionThunk = createAsyncThunk(
   "transactions/updateTransaction",
-  async ({ id, ...transaction }) => {
+  async ({ id, ...transaction }: UpdateTransactionPayload) => {
     await updateTransaction(id, transaction);
     const [processedTransactions, updatedAccounts] = await Promise.all([
       fetchTransactions(),
@@ -53,7 +74,7 @@ export const updateTransactionThunk = createAsyncThunk(
 
 export const deleteTransactionThunk = createAsyncThunk(
   "transactions/deleteTransaction",
-  async (id) => {
+  async (id: string) => {
     await deleteTransaction(id);
     const [processedTransactions, updatedAccounts] = await Promise.all([
       fetchTransactions(),
@@ -65,22 +86,22 @@ export const deleteTransactionThunk = createAsyncThunk(
 
 export const addAccountThunk = createAsyncThunk(
   "transactions/addAccount",
-  async (account) => {
+  async (account: AccountInput) => {
     return await addAccount(account);
   },
 );
 
 export const editAccountThunk = createAsyncThunk(
   "transactions/editAccount",
-  async ({ id, ...updates }) => {
+  async ({ id, ...updates }: Required<Pick<AccountInput, "id">> & AccountInput) => {
     return await updateAccount(id, updates);
   },
 );
 
 export const deleteAccountThunk = createAsyncThunk(
   "transactions/deleteAccount",
-  async (id, { getState }) => {
-    const { transactions } = getState().transactions;
+  async (id: string, { getState }) => {
+    const { transactions } = (getState() as RootState).transactions;
 
     // Don't allow deleting if account has transactions or if it's the cash account
     const hasTransactions = transactions.some(
@@ -98,7 +119,7 @@ export const deleteAccountThunk = createAsyncThunk(
   },
 );
 
-const initialState = {
+const initialState: TransactionsState = {
   transactions: [],
   accounts: [],
   sortOrder: "newest",
@@ -107,7 +128,9 @@ const initialState = {
   error: null,
 };
 
-const getTransactionTimestamp = (transaction) =>
+const getTransactionTimestamp = (
+  transaction: Pick<MoneyTransaction, "transactionDate" | "transactionTime">,
+) =>
   new Date(
     `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00`,
   ).getTime();
@@ -137,7 +160,7 @@ export const transactionsSlice = createSlice({
       })
       .addCase(fetchTransactionsThunk.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.error.message ?? null;
       })
 
       // Fetch Accounts
@@ -150,7 +173,7 @@ export const transactionsSlice = createSlice({
       })
       .addCase(fetchAccountsThunk.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.error.message ?? null;
       })
 
       // Add Transaction
@@ -210,24 +233,28 @@ export const transactionsSlice = createSlice({
 
 export const { toggleSortOrder } = transactionsSlice.actions;
 
-export const selectTransactions = (state) => state.transactions.transactions;
-export const selectAccounts = (state) => state.transactions.accounts;
-export const selectAccountById = (id) => (state) =>
+export const selectTransactions = (state: RootState) =>
+  state.transactions.transactions;
+export const selectAccounts = (state: RootState) => state.transactions.accounts;
+export const selectAccountById = (id: string) => (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === id);
-export const selectCashBalance = (state) =>
+export const selectCashBalance = (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === "cash")
     ?.balance || 0;
-export const selectBankBalance = (state) =>
+export const selectBankBalance = (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === "bank")
     ?.balance || 0;
-export const selectTotalBalance = (state) =>
+export const selectTotalBalance = (state: RootState) =>
   state.transactions.accounts.reduce(
     (sum, account) => sum + (Number(account.balance) || 0),
     0,
   );
-export const selectSummary = (state) => state.transactions.summary;
-export const selectSortOrder = (state) => state.transactions.sortOrder;
-export const selectTransactionsStatus = (state) => state.transactions.status;
-export const selectTransactionsError = (state) => state.transactions.error;
+export const selectSummary = (state: RootState) => state.transactions.summary;
+export const selectSortOrder = (state: RootState) =>
+  state.transactions.sortOrder;
+export const selectTransactionsStatus = (state: RootState) =>
+  state.transactions.status;
+export const selectTransactionsError = (state: RootState) =>
+  state.transactions.error;
 
 export default transactionsSlice.reducer;

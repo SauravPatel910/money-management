@@ -1,10 +1,58 @@
-// @ts-nocheck
 import { memo, useMemo } from "react";
-import { useSelector } from "react-redux";
+import type {
+  ChangeEventHandler,
+  ComponentType,
+  HTMLInputTypeAttribute,
+  ReactNode,
+  SubmitEventHandler,
+} from "react";
+import { useAppSelector } from "../../config/reduxStore";
 import { selectAccounts } from "../../store/transactionsSlice";
 import Input from "./Input";
 import Select from "./Select";
+import type { SelectOption } from "./Select";
 import Button from "./Button";
+import type {
+  TransactionFormFieldName,
+  TransactionFormState,
+  TransactionType,
+} from "../../types/money";
+
+type FieldConfig = {
+  component: ComponentType<{
+    label: string;
+    name: string;
+    value: string | number;
+    onChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+    type?: HTMLInputTypeAttribute;
+    step?: string;
+    placeholder?: string;
+    options?: SelectOption[];
+    required?: boolean;
+    disabled?: boolean;
+  }>;
+  label: string;
+  type?: HTMLInputTypeAttribute;
+  step?: string;
+  placeholder?: string;
+  options?: SelectOption[];
+  defaultValue?: string;
+  required?: boolean;
+};
+
+type TransactionFormProps = {
+  form: TransactionFormState;
+  handleInputChange: ChangeEventHandler<HTMLInputElement>;
+  handleTypeChange: (type: TransactionType) => void;
+  handleSelectChange: ChangeEventHandler<HTMLSelectElement>;
+  addTransaction: SubmitEventHandler<HTMLFormElement>;
+  title?: string;
+  submitLabel?: string;
+  submitIcon?: ReactNode;
+  onCancel?: () => void;
+  disabledFields?: TransactionFormFieldName[];
+  hiddenFields?: TransactionFormFieldName[];
+};
 
 const TransactionForm = ({
   form,
@@ -18,8 +66,8 @@ const TransactionForm = ({
   onCancel,
   disabledFields = [],
   hiddenFields = [],
-}) => {
-  const accounts = useSelector(selectAccounts);
+}: TransactionFormProps) => {
+  const accounts = useAppSelector(selectAccounts);
 
   // Extract account options for select fields using useMemo
   const accountOptions = useMemo(
@@ -40,7 +88,7 @@ const TransactionForm = ({
     const defaultToAccount =
       accountOpts.find((opt) => opt.value !== defaultFromAccount)?.value || "";
 
-    const fieldMap = {
+    const fieldMap: Partial<Record<TransactionFormFieldName, FieldConfig>> = {
       // Common fields (always shown)
       amount: {
         component: Input,
@@ -138,11 +186,14 @@ const TransactionForm = ({
     };
 
     return Object.entries(fieldMap)
-      .filter(([name]) => !hiddenFields.includes(name))
+      .filter(([name]) =>
+        !hiddenFields.includes(name as TransactionFormFieldName),
+      )
       .map(([name, config]) => {
       const Component = config.component;
+      const fieldName = name as TransactionFormFieldName;
       const isNote = name === "note";
-      const value = form[name] || config.defaultValue || "";
+      const value = form[fieldName] || config.defaultValue || "";
       const onChange =
         Component === Select ? handleSelectChange : handleInputChange;
 
@@ -152,13 +203,13 @@ const TransactionForm = ({
             label={config.label}
             name={name}
             value={value}
-            onChange={onChange}
+            onChange={onChange as ChangeEventHandler<HTMLInputElement | HTMLSelectElement>}
             {...(config.type && { type: config.type })}
             {...(config.step && { step: config.step })}
             {...(config.placeholder && { placeholder: config.placeholder })}
             {...(config.options && { options: config.options })}
             {...(config.required && { required: config.required })}
-            disabled={disabledFields.includes(name)}
+            disabled={disabledFields.includes(fieldName)}
           />
         </div>
       );

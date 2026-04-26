@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../config/reduxStore";
 import {
   selectTransactions,
   selectAccounts,
@@ -11,11 +10,11 @@ import {
 } from "../store/transactionsSlice";
 
 export const useAppData = () => {
-  const transactions = useSelector(selectTransactions);
-  const accounts = useSelector(selectAccounts);
-  const status = useSelector(selectTransactionsStatus);
-  const error = useSelector(selectTransactionsError);
-  const dispatch = useDispatch();
+  const transactions = useAppSelector(selectTransactions);
+  const accounts = useAppSelector(selectAccounts);
+  const status = useAppSelector(selectTransactionsStatus);
+  const error = useAppSelector(selectTransactionsError);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     if (status === "idle") {
