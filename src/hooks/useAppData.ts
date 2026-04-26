@@ -5,6 +5,8 @@ import {
   selectAccounts,
   selectTransactionsStatus,
   selectTransactionsError,
+  selectAccountsStatus,
+  selectAccountsError,
   fetchTransactionsThunk,
   fetchAccountsThunk,
 } from "../store/transactionsSlice";
@@ -12,16 +14,29 @@ import {
 export const useAppData = () => {
   const transactions = useAppSelector(selectTransactions);
   const accounts = useAppSelector(selectAccounts);
-  const status = useAppSelector(selectTransactionsStatus);
-  const error = useAppSelector(selectTransactionsError);
+  const transactionsStatus = useAppSelector(selectTransactionsStatus);
+  const transactionsError = useAppSelector(selectTransactionsError);
+  const accountsStatus = useAppSelector(selectAccountsStatus);
+  const accountsError = useAppSelector(selectAccountsError);
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    if (status === "idle") {
+    if (transactionsStatus === "idle") {
       dispatch(fetchTransactionsThunk());
+    }
+
+    if (accountsStatus === "idle") {
       dispatch(fetchAccountsThunk());
     }
-  }, [status, dispatch]);
+  }, [accountsStatus, transactionsStatus, dispatch]);
 
-  return { transactions, accounts, status, error, dispatch };
+  return {
+    transactions,
+    accounts,
+    transactionsStatus,
+    transactionsError,
+    accountsStatus,
+    accountsError,
+    dispatch,
+  };
 };

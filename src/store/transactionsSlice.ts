@@ -27,11 +27,26 @@ type TransactionsState = {
   accounts: Account[];
   sortOrder: SortOrder;
   summary: Summary;
-  status: RequestStatus;
-  error: string | null;
+  transactionsStatus: RequestStatus;
+  transactionsError: string | null;
+  accountsStatus: RequestStatus;
+  accountsError: string | null;
 };
 
 type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
+type FreshDataPayload = {
+  processedTransactions: MoneyTransaction[];
+  updatedAccounts: Account[];
+};
+
+const fetchFreshMoneyData = async (): Promise<FreshDataPayload> => {
+  const [processedTransactions, updatedAccounts] = await Promise.all([
+    fetchTransactions(),
+    fetchAccounts(),
+  ]);
+
+  return { processedTransactions, updatedAccounts };
+};
 
 // Create async thunks for server-backed operations
 export const fetchTransactionsThunk = createAsyncThunk(
@@ -52,11 +67,7 @@ export const addTransactionThunk = createAsyncThunk(
   "transactions/addTransaction",
   async (transaction: TransactionInput) => {
     await addTransaction(transaction);
-    const [processedTransactions, updatedAccounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    return { processedTransactions, updatedAccounts };
+    return fetchFreshMoneyData();
   },
 );
 
@@ -64,11 +75,7 @@ export const updateTransactionThunk = createAsyncThunk(
   "transactions/updateTransaction",
   async ({ id, ...transaction }: UpdateTransactionPayload) => {
     await updateTransaction(id, transaction);
-    const [processedTransactions, updatedAccounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    return { processedTransactions, updatedAccounts };
+    return fetchFreshMoneyData();
   },
 );
 
@@ -76,25 +83,23 @@ export const deleteTransactionThunk = createAsyncThunk(
   "transactions/deleteTransaction",
   async (id: string) => {
     await deleteTransaction(id);
-    const [processedTransactions, updatedAccounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    return { id, updatedAccounts, processedTransactions };
+    return fetchFreshMoneyData();
   },
 );
 
 export const addAccountThunk = createAsyncThunk(
   "transactions/addAccount",
   async (account: AccountInput) => {
-    return await addAccount(account);
+    await addAccount(account);
+    return fetchFreshMoneyData();
   },
 );
 
 export const editAccountThunk = createAsyncThunk(
   "transactions/editAccount",
   async ({ id, ...updates }: Required<Pick<AccountInput, "id">> & AccountInput) => {
-    return await updateAccount(id, updates);
+    await updateAccount(id, updates);
+    return fetchFreshMoneyData();
   },
 );
 
@@ -110,7 +115,7 @@ export const deleteAccountThunk = createAsyncThunk(
 
     if (!hasTransactions && id !== "cash") {
       await deleteAccount(id);
-      return id;
+      return fetchFreshMoneyData();
     } else {
       throw new Error(
         "Cannot delete account that has transactions or is the cash account",
@@ -124,8 +129,10 @@ const initialState: TransactionsState = {
   accounts: [],
   sortOrder: "newest",
   summary: { totalIncome: 0, totalExpense: 0 },
-  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
-  error: null,
+  transactionsStatus: "idle",
+  transactionsError: null,
+  accountsStatus: "idle",
+  accountsError: null,
 };
 
 const getTransactionTimestamp = (
@@ -134,6 +141,29 @@ const getTransactionTimestamp = (
   new Date(
     `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00`,
   ).getTime();
+
+const updateTransactions = (
+  state: TransactionsState,
+  transactions: MoneyTransaction[],
+) => {
+  state.transactions = transactions;
+  state.transactions.sort(
+    (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
+  );
+  state.summary = calculateSummary(state.transactions);
+};
+
+const applyFreshMoneyData = (
+  state: TransactionsState,
+  payload: FreshDataPayload,
+) => {
+  updateTransactions(state, payload.processedTransactions);
+  state.accounts = payload.updatedAccounts;
+  state.transactionsStatus = "succeeded";
+  state.transactionsError = null;
+  state.accountsStatus = "succeeded";
+  state.accountsError = null;
+};
 
 export const transactionsSlice = createSlice({
   name: "transactions",
@@ -147,86 +177,80 @@ export const transactionsSlice = createSlice({
     builder
       // Fetch Transactions
       .addCase(fetchTransactionsThunk.pending, (state) => {
-        state.status = "loading";
+        state.transactionsStatus = "loading";
+        state.transactionsError = null;
       })
       .addCase(fetchTransactionsThunk.fulfilled, (state, action) => {
-        state.status = "succeeded";
-        state.transactions = action.payload;
-        // Ensure transactions are sorted by date (oldest first)
-        state.transactions.sort(
-          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-        );
-        state.summary = calculateSummary(action.payload);
+        state.transactionsStatus = "succeeded";
+        state.transactionsError = null;
+        updateTransactions(state, action.payload);
       })
       .addCase(fetchTransactionsThunk.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = action.error.message ?? null;
+        state.transactionsStatus = "failed";
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Fetch Accounts
       .addCase(fetchAccountsThunk.pending, (state) => {
-        state.status = "loading";
+        state.accountsStatus = "loading";
+        state.accountsError = null;
       })
       .addCase(fetchAccountsThunk.fulfilled, (state, action) => {
-        state.status = "succeeded";
+        state.accountsStatus = "succeeded";
+        state.accountsError = null;
         state.accounts = action.payload;
       })
       .addCase(fetchAccountsThunk.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = action.error.message ?? null;
+        state.accountsStatus = "failed";
+        state.accountsError = action.error.message ?? null;
       })
 
       // Add Transaction
       .addCase(addTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = action.payload.processedTransactions;
-        // Sort transactions by transaction date with newest transactions last
-        state.transactions.sort(
-          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-        );
-        state.summary = calculateSummary(state.transactions);
-        state.accounts = action.payload.updatedAccounts;
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(addTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Update Transaction
       .addCase(updateTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = action.payload.processedTransactions;
-        state.transactions.sort(
-          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-        );
-        state.summary = calculateSummary(state.transactions);
-        state.accounts = action.payload.updatedAccounts;
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(updateTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Delete Transaction
       .addCase(deleteTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = action.payload.processedTransactions;
-        state.summary = calculateSummary(state.transactions);
-        state.accounts = action.payload.updatedAccounts;
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(deleteTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Add Account
       .addCase(addAccountThunk.fulfilled, (state, action) => {
-        state.accounts.push(action.payload);
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(addAccountThunk.rejected, (state, action) => {
+        state.accountsError = action.error.message ?? null;
       })
 
       // Edit Account
       .addCase(editAccountThunk.fulfilled, (state, action) => {
-        const index = state.accounts.findIndex(
-          (account) => account.id === action.payload.id,
-        );
-        if (index !== -1) {
-          state.accounts[index] = {
-            ...state.accounts[index],
-            ...action.payload,
-          };
-        }
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(editAccountThunk.rejected, (state, action) => {
+        state.accountsError = action.error.message ?? null;
       })
 
       // Delete Account
       .addCase(deleteAccountThunk.fulfilled, (state, action) => {
-        state.accounts = state.accounts.filter(
-          (account) => account.id !== action.payload,
-        );
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(deleteAccountThunk.rejected, (state, action) => {
+        state.accountsError = action.error.message ?? null;
       });
   },
 });
@@ -253,8 +277,12 @@ export const selectSummary = (state: RootState) => state.transactions.summary;
 export const selectSortOrder = (state: RootState) =>
   state.transactions.sortOrder;
 export const selectTransactionsStatus = (state: RootState) =>
-  state.transactions.status;
+  state.transactions.transactionsStatus;
 export const selectTransactionsError = (state: RootState) =>
-  state.transactions.error;
+  state.transactions.transactionsError;
+export const selectAccountsStatus = (state: RootState) =>
+  state.transactions.accountsStatus;
+export const selectAccountsError = (state: RootState) =>
+  state.transactions.accountsError;
 
 export default transactionsSlice.reducer;

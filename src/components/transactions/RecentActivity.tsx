@@ -73,15 +73,15 @@ const RecentActivity = ({ transactions, formatDate }: RecentActivityProps) => {
 // Function to get activity item background and border colors
 const getActivityItemStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "border-l-4 border-income bg-gradient-to-r from-income-light/40 to-white";
+    return "border-l-4 border-income bg-linear-to-r from-income-light/40 to-white";
   } else if (transaction.type === "expense") {
-    return "border-l-4 border-expense bg-gradient-to-r from-expense-light/40 to-white";
+    return "border-l-4 border-expense bg-linear-to-r from-expense-light/40 to-white";
   } else if (transaction.type === "transfer") {
-    return "border-l-4 border-primary-500 bg-gradient-to-r from-primary-100/40 to-white";
+    return "border-l-4 border-primary-500 bg-linear-to-r from-primary-100/40 to-white";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "border-l-4 border-expense bg-gradient-to-r from-expense-light/40 to-white"
-      : "border-l-4 border-income bg-gradient-to-r from-income-light/40 to-white";
+      ? "border-l-4 border-expense bg-linear-to-r from-expense-light/40 to-white"
+      : "border-l-4 border-income bg-linear-to-r from-income-light/40 to-white";
   }
   return "";
 };
@@ -158,77 +158,77 @@ type ActivityItemProps = {
 
 const ActivityItem = memo(
   ({ transaction, formatDate, getAccountName }: ActivityItemProps) => {
-  return (
-    <div
-      className={`flex transform items-center justify-between rounded-xl p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${getActivityItemStyles(
-        transaction,
-      )}`}
-    >
-      <div className="flex items-center">
-        <div
-          className={`mr-3 rounded-lg p-3 shadow-md ${getActivityIconStyles(
-            transaction,
-          )}`}
-        >
-          <svg
-            className="h-5 w-5"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+    return (
+      <div
+        className={`flex transform items-center justify-between rounded-xl p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${getActivityItemStyles(
+          transaction,
+        )}`}
+      >
+        <div className="flex items-center">
+          <div
+            className={`mr-3 rounded-lg p-3 shadow-md ${getActivityIconStyles(
+              transaction,
+            )}`}
           >
-            {transaction.type === "income" && (
-              <path
-                fillRule="evenodd"
-                d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            )}
-            {transaction.type === "expense" && (
-              <path
-                fillRule="evenodd"
-                d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
-                clipRule="evenodd"
-              />
-            )}
-            {transaction.type === "transfer" && (
-              <path
-                fillRule="evenodd"
-                d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            )}
-            {transaction.type === "person" && (
-              <path
-                fillRule="evenodd"
-                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                clipRule="evenodd"
-              />
-            )}
-          </svg>
-        </div>
-        <div>
-          <div className="text-sm text-gray-500">
-            {formatDate(
-              transaction.transactionDate,
-              transaction.transactionTime,
-            )} •{" "}
-            {getTransactionDescription(transaction, getAccountName)}
+            <svg
+              className="h-5 w-5"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              {transaction.type === "income" && (
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              )}
+              {transaction.type === "expense" && (
+                <path
+                  fillRule="evenodd"
+                  d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
+              )}
+              {transaction.type === "transfer" && (
+                <path
+                  fillRule="evenodd"
+                  d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              )}
+              {transaction.type === "person" && (
+                <path
+                  fillRule="evenodd"
+                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                  clipRule="evenodd"
+                />
+              )}
+            </svg>
           </div>
-          {transaction.note && (
-            <div className="mt-0.5 max-w-[150px] truncate text-xs text-gray-500">
-              {transaction.note}
+          <div>
+            <div className="text-sm text-gray-500">
+              {formatDate(
+                transaction.transactionDate,
+                transaction.transactionTime,
+              )}{" "}
+              • {getTransactionDescription(transaction, getAccountName)}
             </div>
-          )}
+            {transaction.note && (
+              <div className="mt-0.5 max-w-[150px] truncate text-xs text-gray-500">
+                {transaction.note}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className={`font-bold ${getActivityAmountStyles(transaction)}`}>
+          {getAmountPrefix(transaction)}₹
+          {transaction.amount.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+          })}
         </div>
       </div>
-      <div className={`font-bold ${getActivityAmountStyles(transaction)}`}>
-        {getAmountPrefix(transaction)}₹
-        {transaction.amount.toLocaleString("en-IN", {
-          minimumFractionDigits: 2,
-        })}
-      </div>
-    </div>
-  );
+    );
   },
 );
 

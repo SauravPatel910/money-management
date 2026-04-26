@@ -33,7 +33,7 @@ const Button = memo(
       baseClasses +=
         " w-full px-6 py-3 text-center shadow-md transform hover:-translate-y-0.5 hover:shadow-lg";
       variantClasses =
-        "bg-gradient-to-r from-primary-500 to-primary-600 text-white focus:ring-primary-500";
+        "bg-linear-to-r from-primary-500 to-primary-600 text-white focus:ring-primary-500";
       if (disabled) {
         variantClasses = "bg-gray-400 text-gray-200 cursor-not-allowed";
         baseClasses += " shadow-none transform-none";
@@ -47,16 +47,16 @@ const Button = memo(
         variantClasses = "text-white shadow-md";
         if (variant === "income") {
           variantClasses +=
-            " bg-gradient-to-r from-income to-income-dark focus:ring-income";
+            " bg-linear-to-r from-income to-income-dark focus:ring-income";
         } else if (variant === "expense") {
           variantClasses +=
-            " bg-gradient-to-r from-expense to-expense-dark focus:ring-expense";
+            " bg-linear-to-r from-expense to-expense-dark focus:ring-expense";
         } else if (variant === "transfer") {
           variantClasses +=
-            " bg-gradient-to-r from-primary-500 to-primary-600 focus:ring-primary-500";
+            " bg-linear-to-r from-primary-500 to-primary-600 focus:ring-primary-500";
         } else if (variant === "person") {
           variantClasses +=
-            " bg-gradient-to-r from-accent-purple to-accent-pink focus:ring-accent-purple";
+            " bg-linear-to-r from-accent-purple to-accent-pink focus:ring-accent-purple";
         }
       } else {
         variantClasses =

@@ -44,7 +44,7 @@ const TransactionHistory = ({
           Transaction History
         </h3>
         <button
-          className="flex transform items-center rounded-lg bg-gradient-to-r from-primary-400 to-primary-500 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors hover:-translate-y-0.5 hover:from-primary-500 hover:to-primary-600 hover:shadow-lg"
+          className="flex transform items-center rounded-lg bg-linear-to-r from-primary-400 to-primary-500 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors hover:-translate-y-0.5 hover:from-primary-500 hover:to-primary-600 hover:shadow-lg"
           onClick={toggleSortOrder}
         >
           <svg
@@ -86,7 +86,7 @@ const TransactionHistory = ({
         <div className="overflow-x-auto rounded-xl border border-primary-100 shadow-md">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gradient-to-r from-primary-300/70 to-primary-100/70">
+              <tr className="bg-linear-to-r from-primary-300/70 to-primary-100/70">
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Transaction Date
                 </th>
@@ -136,15 +136,15 @@ const TransactionHistory = ({
 // Function to get the background color based on transaction type
 const getRowBackgroundColor = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-gradient-to-r from-income-light/20 to-transparent";
+    return "bg-linear-to-r from-income-light/20 to-transparent";
   } else if (transaction.type === "expense") {
-    return "bg-gradient-to-r from-expense-light/20 to-transparent";
+    return "bg-linear-to-r from-expense-light/20 to-transparent";
   } else if (transaction.type === "transfer") {
-    return "bg-gradient-to-r from-primary-100/30 to-transparent";
+    return "bg-linear-to-r from-primary-100/30 to-transparent";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-gradient-to-r from-expense-light/20 to-transparent"
-      : "bg-gradient-to-r from-income-light/20 to-transparent";
+      ? "bg-linear-to-r from-expense-light/20 to-transparent"
+      : "bg-linear-to-r from-income-light/20 to-transparent";
   }
   return "";
 };
@@ -152,15 +152,15 @@ const getRowBackgroundColor = (transaction: MoneyTransaction) => {
 // Function to get the type badge styles
 const getTypeBadgeStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-gradient-to-r from-income to-income-dark text-white";
+    return "bg-linear-to-r from-income to-income-dark text-white";
   } else if (transaction.type === "expense") {
-    return "bg-gradient-to-r from-expense to-expense-dark text-white";
+    return "bg-linear-to-r from-expense to-expense-dark text-white";
   } else if (transaction.type === "transfer") {
-    return "bg-gradient-to-r from-primary-500 to-primary-600 text-white";
+    return "bg-linear-to-r from-primary-500 to-primary-600 text-white";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-gradient-to-r from-expense to-expense-dark text-white"
-      : "bg-gradient-to-r from-income to-income-dark text-white";
+      ? "bg-linear-to-r from-expense to-expense-dark text-white"
+      : "bg-linear-to-r from-income to-income-dark text-white";
   }
   return "";
 };
@@ -402,7 +402,7 @@ const TransactionRow = memo(
         <td className="px-4 py-3 text-sm whitespace-nowrap">
           {editTransaction && (
             <button
-              className="mr-2 transform rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+              className="mr-2 transform rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
               onClick={() => editTransaction(transaction)}
             >
               <svg
@@ -422,7 +422,7 @@ const TransactionRow = memo(
             </button>
           )}
           <button
-            className="transform rounded-lg bg-gradient-to-r from-expense to-expense-dark px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+            className="transform rounded-lg bg-linear-to-r from-expense to-expense-dark px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
             onClick={() => deleteTransaction(transaction.id)}
           >
             <svg

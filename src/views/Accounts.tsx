@@ -9,16 +9,16 @@ import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
 
 function Accounts() {
-  const { status, error } = useAppData();
+  const { accountsStatus, accountsError } = useAppData();
 
-  if (status === "loading") {
+  if (accountsStatus === "loading") {
     return <Loading text="Loading account information..." />;
   }
 
-  if (status === "failed") {
+  if (accountsStatus === "failed") {
     return (
       <Failed
-        error={error}
+        error={accountsError}
         text="Failed to load account information. Please try again later."
       />
     );

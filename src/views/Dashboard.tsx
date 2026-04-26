@@ -26,7 +26,15 @@ const hiddenAutomaticDateTimeFields: TransactionFormFieldName[] = [
 ];
 
 function Dashboard() {
-  const { transactions, accounts, dispatch, status, error } = useAppData();
+  const {
+    transactions,
+    accounts,
+    dispatch,
+    transactionsStatus,
+    transactionsError,
+    accountsStatus,
+    accountsError,
+  } = useAppData();
   const { formatDate } = useCommonUtils();
   const currentDateTime = getCurrentIstDateTimeInputs();
 
@@ -194,13 +202,16 @@ function Dashboard() {
     },
     [form, dispatch, accounts],
   );
-  if (status === "loading" && transactions.length === 0) {
+  if (
+    (transactionsStatus === "loading" && transactions.length === 0) ||
+    (accountsStatus === "loading" && accounts.length === 0)
+  ) {
     return <Loading />;
   }
-  if (status === "failed") {
+  if (transactionsStatus === "failed" || accountsStatus === "failed") {
     return (
       <Failed
-        error={error}
+        error={transactionsError || accountsError}
         text="Failed to load dashboard data. Please try again later."
       />
     );
