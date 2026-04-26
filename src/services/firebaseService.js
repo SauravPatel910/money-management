@@ -17,15 +17,17 @@ const DEFAULT_ACCOUNTS = [
   { id: "bank", name: "Primary Bank", balance: 0, icon: "bank" },
 ];
 
+const toAmount = (value) => Number(value) || 0;
+
 // Calculate summary based on transactions
 export const calculateSummary = (transactions = []) => {
   const totalIncome = transactions
     .filter((t) => t.type === "income")
-    .reduce((acc, t) => acc + t.amount, 0);
+    .reduce((acc, t) => acc + toAmount(t.amount), 0);
 
   const totalExpense = transactions
     .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + t.amount, 0);
+    .reduce((acc, t) => acc + toAmount(t.amount), 0);
 
   return { totalIncome, totalExpense };
 };
@@ -45,35 +47,37 @@ export const recalculateBalances = (transactions = [], accounts = []) => {
 
   // Process all transactions to recalculate account balances
   const processedTransactions = sortedTransactions.map((transaction) => {
+    const amount = toAmount(transaction.amount);
+
     if (transaction.type === "income") {
       // Regular income
       const accountId = transaction.account || "cash";
       accountBalances[accountId] =
-        (accountBalances[accountId] || 0) + transaction.amount;
+        (accountBalances[accountId] || 0) + amount;
     } else if (transaction.type === "expense") {
       // Regular expense
       const accountId = transaction.account || "cash";
       accountBalances[accountId] =
-        (accountBalances[accountId] || 0) - transaction.amount;
+        (accountBalances[accountId] || 0) - amount;
     } else if (transaction.type === "transfer") {
       // Transfer between accounts
       const fromAccountId = transaction.from || "cash";
       const toAccountId = transaction.to || "bank";
       accountBalances[fromAccountId] =
-        (accountBalances[fromAccountId] || 0) - transaction.amount;
+        (accountBalances[fromAccountId] || 0) - amount;
       accountBalances[toAccountId] =
-        (accountBalances[toAccountId] || 0) + transaction.amount;
+        (accountBalances[toAccountId] || 0) + amount;
     } else if (transaction.type === "person") {
       // Person-to-person transaction
       const accountId = transaction.account || "cash";
       if (transaction.direction === "to") {
         // Giving money to someone
         accountBalances[accountId] =
-          (accountBalances[accountId] || 0) - transaction.amount;
+          (accountBalances[accountId] || 0) - amount;
       } else if (transaction.direction === "from") {
         // Receiving money from someone
         accountBalances[accountId] =
-          (accountBalances[accountId] || 0) + transaction.amount;
+          (accountBalances[accountId] || 0) + amount;
       }
     }
 
@@ -143,8 +147,10 @@ export const addTransactionToFirebase = async (transaction) => {
     // Make sure the new transaction has all required fields
     const transactionWithDefaults = {
       ...transaction,
+      amount: toAmount(transaction.amount),
       account: transaction.account || "cash",
       entryDate: transaction.entryDate || new Date().toISOString(), // Default to today if not provided
+      pendingId: crypto.randomUUID(),
     };
 
     // Temporarily add the new transaction to calculate correct balances
@@ -160,21 +166,20 @@ export const addTransactionToFirebase = async (transaction) => {
     );
 
     // Find our transaction in the processed list to get the correct balances
-    const matchTransaction = (t) =>
-      t.type === transaction.type &&
-      t.amount === transaction.amount &&
-      t.transactionDate === transaction.transactionDate &&
-      (t.note === transaction.note || (!t.note && !transaction.note));
-
-    const correctTransaction = processedTransactions.find(matchTransaction);
+    const correctTransaction = processedTransactions.find(
+      (t) => t.pendingId === transactionWithDefaults.pendingId,
+    );
 
     if (!correctTransaction) {
       throw new Error("Failed to process transaction correctly");
     }
 
     // Create the transaction with the correct account balance snapshot
+    const { pendingId: _pendingId, ...transactionToSave } =
+      transactionWithDefaults;
+
     const transactionWithBalances = {
-      ...transactionWithDefaults,
+      ...transactionToSave,
       accountBalances: { ...correctTransaction.accountBalances },
       totalBalance: correctTransaction.totalBalance,
     };

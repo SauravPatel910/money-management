@@ -26,10 +26,12 @@ const TransactionForm = ({
   // Dynamic field generator with complex logic
   const renderFields = useMemo(() => {
     const { type } = form;
-    // Sort account options alphabetically by name
+    // Sort account options alphabetically by name while preserving account ids as values
     const accountOpts = [...accountOptions]
-      .map((opt) => opt.label)
-      .sort((a, b) => a.localeCompare(b));
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const defaultFromAccount = form.from || accountOpts[0]?.value || "";
+    const defaultToAccount =
+      accountOpts.find((opt) => opt.value !== defaultFromAccount)?.value || "";
 
     const fieldMap = {
       // Common fields (always shown)
@@ -63,18 +65,16 @@ const TransactionForm = ({
           component: Select,
           label: "From Account",
           options: accountOpts,
-          defaultValue: accountOpts[0],
+          defaultValue: defaultFromAccount,
           required: true,
         },
         to: {
           component: Select,
           label: "To Account",
           options: accountOpts.filter(
-            (opt) => opt !== (form.from || accountOpts[0]),
+            (opt) => opt.value !== defaultFromAccount,
           ),
-          defaultValue:
-            accountOpts.find((opt) => opt !== (form.from || accountOpts[0])) ||
-            accountOpts[1],
+          defaultValue: defaultToAccount,
           required: true,
         },
       }),
@@ -118,10 +118,6 @@ const TransactionForm = ({
       const value = form[name] || config.defaultValue || "";
       const onChange =
         Component === Select ? handleSelectChange : handleInputChange;
-
-      if (config.label && config.options) {
-        console.log(config.label, config.options);
-      }
 
       return (
         <div className={isNote ? "mb-6" : "mb-4"} key={name}>

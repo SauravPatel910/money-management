@@ -4,18 +4,23 @@ import { useAppData } from "../hooks/useAppData";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
+import Failed from "../components/UI/Failed";
 
 function Accounts() {
   const { status, error } = useAppData();
 
-  // Show loading state
-  status === "loading" && <Loading text="Loading account information..." />;
-  status === "failed" && (
-    <Failed
-      error={error}
-      text="Failed to load account information. Please try again later."
-    />
-  );
+  if (status === "loading") {
+    return <Loading text="Loading account information..." />;
+  }
+
+  if (status === "failed") {
+    return (
+      <Failed
+        error={error}
+        text="Failed to load account information. Please try again later."
+      />
+    );
+  }
 
   return (
     <PageLayout

@@ -265,7 +265,7 @@ export const selectBankBalance = (state) =>
     ?.balance || 0;
 export const selectTotalBalance = (state) =>
   state.transactions.accounts.reduce(
-    (sum, account) => sum + account.balance,
+    (sum, account) => sum + (Number(account.balance) || 0),
     0,
   );
 export const selectSummary = (state) => state.transactions.summary;
