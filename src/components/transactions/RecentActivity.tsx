@@ -2,6 +2,7 @@ import { memo } from "react";
 import { useAppSelector } from "../../config/reduxStore";
 import { selectAccounts } from "../../store/transactionsSlice";
 import type { MoneyTransaction } from "../../types/money";
+import { formatCurrency } from "../../utils/formatters";
 
 type FormatDate = (dateString: string, timeString?: string) => string;
 type GetAccountName = (accountId: string) => string;
@@ -89,15 +90,15 @@ const getActivityItemStyles = (transaction: MoneyTransaction) => {
 // Function to get activity icon background colors
 const getActivityIconStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-gradient-to-br from-income to-income-dark text-white";
+    return "bg-linear-to-br from-income to-income-dark text-white";
   } else if (transaction.type === "expense") {
-    return "bg-gradient-to-br from-expense to-expense-dark text-white";
+    return "bg-linear-to-br from-expense to-expense-dark text-white";
   } else if (transaction.type === "transfer") {
-    return "bg-gradient-to-br from-primary-500 to-primary-600 text-white";
+    return "bg-linear-to-br from-primary-500 to-primary-600 text-white";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-gradient-to-br from-expense to-expense-dark text-white"
-      : "bg-gradient-to-br from-income to-income-dark text-white";
+      ? "bg-linear-to-br from-expense to-expense-dark text-white"
+      : "bg-linear-to-br from-income to-income-dark text-white";
   }
   return "";
 };
@@ -222,10 +223,8 @@ const ActivityItem = memo(
           </div>
         </div>
         <div className={`font-bold ${getActivityAmountStyles(transaction)}`}>
-          {getAmountPrefix(transaction)}₹
-          {transaction.amount.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-          })}
+          {getAmountPrefix(transaction)}
+          {formatCurrency(transaction.amount)}
         </div>
       </div>
     );

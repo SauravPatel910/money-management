@@ -9,6 +9,7 @@ import {
 } from "../../store/transactionsSlice";
 import Input from "../forms/Input";
 import type { Account, AccountFormState } from "../../types/money";
+import { formatCurrency } from "../../utils/formatters";
 
 type AccountInputChangeHandler = (
   e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -310,18 +311,16 @@ const AccountCard = memo(
           <p className="text-sm font-semibold text-primary-600">
             Owner: {account.owner || "N/A"}
           </p>
-          <p className="text-sm font-semibold text-primary-600">
-            ₹
-            {account.balance.toLocaleString("en-IN", {
-              minimumFractionDigits: 2,
-            })}
-          </p>
+        <p className="text-sm font-semibold text-primary-600">
+          {formatCurrency(account.balance)}
+        </p>
         </div>
       </div>
       <div className="hidden space-x-2 group-hover:flex">
         <button
           className="rounded-lg bg-primary-100 p-1.5 text-primary-700 transition-colors hover:bg-primary-200"
           onClick={onEdit}
+          aria-label={`Edit ${account.name}`}
         >
           <svg
             className="h-4 w-4"
@@ -336,6 +335,7 @@ const AccountCard = memo(
           <button
             className="rounded-lg bg-expense-light p-1.5 text-expense-dark transition-colors hover:bg-expense/20"
             onClick={onDelete}
+            aria-label={`Delete ${account.name}`}
           >
             <svg
               className="h-4 w-4"

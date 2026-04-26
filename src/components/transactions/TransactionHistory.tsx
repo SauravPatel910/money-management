@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { useAppSelector } from "../../config/reduxStore";
 import { selectAccounts } from "../../store/transactionsSlice";
 import type { Account, MoneyTransaction } from "../../types/money";
+import { formatCurrency } from "../../utils/formatters";
 
 type SortOrder = "newest" | "oldest";
 type FormatDate = (dateString: string, timeString?: string) => string;
@@ -363,10 +364,8 @@ const TransactionRow = memo(
             transaction,
           )}`}
         >
-          {getAmountPrefix(transaction)}₹
-          {transaction.amount.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-          })}
+          {getAmountPrefix(transaction)}
+          {formatCurrency(transaction.amount)}
         </td>
         <td className="max-w-xs truncate px-4 py-3 text-sm">
           {transaction.note || "-"}
@@ -386,12 +385,9 @@ const TransactionRow = memo(
                       {getAccountName(accountId)}:
                     </span>
                     <span className="ml-1 text-xs font-medium text-primary-700">
-                      ₹
-                      {(
-                        transaction.accountBalances?.[accountId] || 0
-                      ).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {formatCurrency(
+                        transaction.accountBalances?.[accountId] || 0,
+                      )}
                     </span>
                   </div>
                 ))}
@@ -402,10 +398,7 @@ const TransactionRow = memo(
                   Total:
                 </span>
                 <span className="text-xs font-bold text-primary-700">
-                  ₹
-                  {totalBalanceAtTransaction.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCurrency(totalBalanceAtTransaction)}
                 </span>
               </div>
             </div>
@@ -440,12 +433,9 @@ const TransactionRow = memo(
                           : "text-gray-600"
                       }`}
                     >
-                      ₹
-                      {(
-                        transaction.accountBalances?.[account.id] || 0
-                      ).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {formatCurrency(
+                        transaction.accountBalances?.[account.id] || 0,
+                      )}
                     </span>
                   </div>
                 ))}
@@ -456,10 +446,7 @@ const TransactionRow = memo(
                   Total:
                 </span>
                 <span className="text-xs font-bold text-primary-700">
-                  ₹
-                  {totalBalanceAtTransaction.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCurrency(totalBalanceAtTransaction)}
                 </span>
               </div>
             </div>
