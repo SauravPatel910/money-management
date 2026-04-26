@@ -9,6 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "eslint . && tsc --noEmit && prisma validate && next build",
     "start": "next start",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",

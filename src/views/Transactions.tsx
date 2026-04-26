@@ -33,7 +33,7 @@ function TransactionHistoryPage() {
   const [editForm, setEditForm] = useState(null);
 
   useEffect(() => {
-    if (!editForm) {
+    if (editingTransactionId == null) {
       return;
     }
 

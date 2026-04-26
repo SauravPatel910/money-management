@@ -163,7 +163,14 @@ const TransactionForm = ({
         </div>
       );
     });
-  }, [form, accountOptions, handleInputChange, handleSelectChange, hiddenFields]);
+  }, [
+    form,
+    accountOptions,
+    handleInputChange,
+    handleSelectChange,
+    hiddenFields,
+    disabledFields,
+  ]);
 
   const addTransactionIcon = (
     <svg
