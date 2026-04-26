@@ -35,6 +35,9 @@ model Transaction {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([account])
+  @@index([from])
+  @@index([to])
   @@index([transactionDate])
   @@map("transactions")
 }

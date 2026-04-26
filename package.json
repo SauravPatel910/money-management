@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
+    "test": "node --test src/lib/moneyCalculations.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "eslint . && tsc --noEmit && prisma validate && next build",
     "start": "next start",

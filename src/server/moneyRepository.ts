@@ -1,13 +1,27 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/prisma";
-import type { Account, AccountInput, MoneyTransaction, TransactionInput } from "@/types/money";
+import type {
+  Account,
+  AccountInput,
+  MoneyTransaction,
+  TransactionInput,
+  TransactionType,
+} from "@/types/money";
+import { recalculateBalances, toAmount } from "@/lib/moneyCalculations";
+
+type PrismaClientOrTransaction = typeof prisma | Prisma.TransactionClient;
+type DbTransaction = Awaited<ReturnType<PrismaClientOrTransaction["transaction"]["findUniqueOrThrow"]>>;
 
 const DEFAULT_ACCOUNTS: Account[] = [
   { id: "cash", name: "Cash", balance: 0, icon: "cash" },
   { id: "bank", name: "Primary Bank", balance: 0, icon: "bank" },
 ];
-
-const toAmount = (value: unknown) => Number(value) || 0;
+const SUPPORTED_TRANSACTION_TYPES: TransactionType[] = [
+  "income",
+  "expense",
+  "transfer",
+  "person",
+];
 
 const toDate = (value?: string | null, time?: string | null) => {
   const dateValue = value || new Date().toISOString().slice(0, 10);
@@ -17,11 +31,6 @@ const toDate = (value?: string | null, time?: string | null) => {
 
 const toDateInputValue = (value: Date) => value.toISOString().slice(0, 10);
 const toTimeInputValue = (value: Date) => value.toISOString().slice(11, 16);
-
-const getTransactionTimestamp = (transaction: Pick<MoneyTransaction, "transactionDate" | "transactionTime">) =>
-  new Date(
-    `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00.000Z`,
-  ).getTime();
 
 const accountFromDb = (account: {
   id: string;
@@ -82,74 +91,66 @@ const normalizeTransactionInput = (transaction: TransactionInput) => ({
   entryDate: toDate(transaction.entryDate, transaction.entryTime),
 });
 
-export const calculateSummary = (transactions: MoneyTransaction[] = []) => {
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((acc, t) => acc + toAmount(t.amount), 0);
+const dbTransactionToInput = (transaction: DbTransaction): TransactionInput => ({
+  type: transaction.type as TransactionType,
+  amount: transaction.amount.toNumber(),
+  account: transaction.account,
+  from: transaction.from,
+  to: transaction.to,
+  direction: transaction.direction as MoneyTransaction["direction"],
+  person: transaction.person,
+  note: transaction.note,
+  transactionDate: toDateInputValue(transaction.transactionDate),
+  transactionTime: toTimeInputValue(transaction.transactionDate),
+  entryDate: toDateInputValue(transaction.entryDate),
+  entryTime: toTimeInputValue(transaction.entryDate),
+});
 
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + toAmount(t.amount), 0);
+const trimField = (value?: string | null) => value?.trim() || "";
 
-  return { totalIncome, totalExpense };
-};
+const validateTransactionInput = (transaction: TransactionInput) => {
+  const amount = toAmount(transaction.amount);
 
-export const recalculateBalances = (
-  transactions: MoneyTransaction[] = [],
-  accounts: Account[] = [],
-) => {
-  const accountBalances = accounts.reduce<Record<string, number>>(
-    (acc, account) => {
-      acc[account.id] = 0;
-      return acc;
-    },
-    {},
-  );
+  if (amount <= 0) {
+    throw new Error("Transaction amount must be greater than 0");
+  }
 
-  const sortedTransactions = [...transactions].sort(
-    (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-  );
+  if (!SUPPORTED_TRANSACTION_TYPES.includes(transaction.type)) {
+    throw new Error("Unsupported transaction type");
+  }
 
-  const processedTransactions = sortedTransactions.map((transaction) => {
-    const amount = toAmount(transaction.amount);
+  if (transaction.type === "income" || transaction.type === "expense") {
+    if (!trimField(transaction.account)) {
+      throw new Error("Account is required for income and expense transactions");
+    }
+  }
 
-    if (transaction.type === "income") {
-      const accountId = transaction.account || "cash";
-      accountBalances[accountId] = (accountBalances[accountId] || 0) + amount;
-    } else if (transaction.type === "expense") {
-      const accountId = transaction.account || "cash";
-      accountBalances[accountId] = (accountBalances[accountId] || 0) - amount;
-    } else if (transaction.type === "transfer") {
-      const fromAccountId = transaction.from || "cash";
-      const toAccountId = transaction.to || "bank";
-      accountBalances[fromAccountId] =
-        (accountBalances[fromAccountId] || 0) - amount;
-      accountBalances[toAccountId] = (accountBalances[toAccountId] || 0) + amount;
-    } else if (transaction.type === "person") {
-      const accountId = transaction.account || "cash";
-      if (transaction.direction === "to") {
-        accountBalances[accountId] = (accountBalances[accountId] || 0) - amount;
-      } else if (transaction.direction === "from") {
-        accountBalances[accountId] = (accountBalances[accountId] || 0) + amount;
-      }
+  if (transaction.type === "transfer") {
+    const from = trimField(transaction.from);
+    const to = trimField(transaction.to);
+
+    if (!from || !to) {
+      throw new Error("From and to accounts are required for transfers");
     }
 
-    const totalBalance = Object.values(accountBalances).reduce(
-      (sum, balance) => sum + balance,
-      0,
-    );
+    if (from === to) {
+      throw new Error("Transfer from and to accounts must be different");
+    }
+  }
 
-    return {
-      ...transaction,
-      accountBalances: { ...accountBalances },
-      totalBalance,
-    };
-  });
+  if (transaction.type === "person") {
+    if (!trimField(transaction.account)) {
+      throw new Error("Account is required for person transactions");
+    }
 
-  return {
-    processedTransactions,
-    accountBalances,
-  };
+    if (!trimField(transaction.person)) {
+      throw new Error("Person name is required for person transactions");
+    }
+
+    if (transaction.direction !== "to" && transaction.direction !== "from") {
+      throw new Error("Person transaction direction must be to or from");
+    }
+  }
 };
 
 export async function ensureDefaultAccounts() {
@@ -168,33 +169,43 @@ export async function ensureDefaultAccounts() {
   }
 }
 
+const listAccountsFromDb = async (client: PrismaClientOrTransaction) => {
+  const accounts = await client.account.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+  return accounts.map(accountFromDb);
+};
+
 export async function listAccounts() {
   await ensureDefaultAccounts();
-  const accounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } });
-  return accounts.map(accountFromDb);
+  return listAccountsFromDb(prisma);
 }
 
-export async function listTransactions() {
-  const transactions = await prisma.transaction.findMany({
+const listTransactionsFromDb = async (client: PrismaClientOrTransaction) => {
+  const transactions = await client.transaction.findMany({
     orderBy: [{ transactionDate: "asc" }, { createdAt: "asc" }],
   });
 
   return transactions.map(transactionFromDb);
+};
+
+export async function listTransactions() {
+  return listTransactionsFromDb(prisma);
 }
 
-async function rebuildBalances() {
+async function rebuildBalances(client: PrismaClientOrTransaction) {
   const [accounts, transactions] = await Promise.all([
-    listAccounts(),
-    listTransactions(),
+    listAccountsFromDb(client),
+    listTransactionsFromDb(client),
   ]);
   const { accountBalances, processedTransactions } = recalculateBalances(
     transactions,
     accounts,
   );
 
-  await prisma.$transaction([
+  await Promise.all([
     ...processedTransactions.map((transaction) =>
-      prisma.transaction.update({
+      client.transaction.update({
         where: { id: transaction.id },
         data: {
           accountBalances: transaction.accountBalances ?? {},
@@ -203,7 +214,7 @@ async function rebuildBalances() {
       }),
     ),
     ...accounts.map((account) =>
-      prisma.account.update({
+      client.account.update({
         where: { id: account.id },
         data: {
           balance: new Prisma.Decimal(accountBalances[account.id] || 0),
@@ -222,13 +233,18 @@ async function rebuildBalances() {
 }
 
 export async function createTransaction(transaction: TransactionInput) {
-  const created = await prisma.transaction.create({
-    data: normalizeTransactionInput(transaction),
+  validateTransactionInput(transaction);
+
+  const refreshed = await prisma.$transaction(async (tx) => {
+    const created = await tx.transaction.create({
+      data: normalizeTransactionInput(transaction),
+    });
+    await rebuildBalances(tx);
+    return tx.transaction.findUniqueOrThrow({
+      where: { id: created.id },
+    });
   });
-  await rebuildBalances();
-  const refreshed = await prisma.transaction.findUniqueOrThrow({
-    where: { id: created.id },
-  });
+
   return transactionFromDb(refreshed);
 }
 
@@ -236,58 +252,60 @@ export async function updateTransaction(
   id: string,
   transaction: Partial<TransactionInput>,
 ) {
-  const existing =
-    (transaction.transactionTime && !transaction.transactionDate) ||
-    (transaction.entryTime && !transaction.entryDate)
-      ? await prisma.transaction.findUniqueOrThrow({ where: { id } })
-      : null;
+  const updated = await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findUniqueOrThrow({ where: { id } });
+    const nextTransaction: TransactionInput = {
+      ...dbTransactionToInput(existing),
+      ...transaction,
+    };
+    validateTransactionInput(nextTransaction);
 
-  const updated = await prisma.transaction.update({
-    where: { id },
-    data: {
-      ...(transaction.type && { type: transaction.type }),
-      ...(transaction.amount !== undefined && {
-        amount: new Prisma.Decimal(toAmount(transaction.amount)),
-      }),
-      ...(transaction.account !== undefined && {
-        account: transaction.account || null,
-      }),
-      ...(transaction.from !== undefined && { from: transaction.from || null }),
-      ...(transaction.to !== undefined && { to: transaction.to || null }),
-      ...(transaction.direction !== undefined && {
-        direction: transaction.direction || null,
-      }),
-      ...(transaction.person !== undefined && {
-        person: transaction.person || null,
-      }),
-      ...(transaction.note !== undefined && { note: transaction.note || null }),
-      ...((transaction.transactionDate !== undefined ||
-        transaction.transactionTime !== undefined) && {
-        transactionDate: toDate(
-          transaction.transactionDate ||
-            (existing ? toDateInputValue(existing.transactionDate) : undefined),
-          transaction.transactionTime ||
-            (existing ? toTimeInputValue(existing.transactionDate) : undefined),
-        ),
-      }),
-      ...((transaction.entryDate !== undefined ||
-        transaction.entryTime !== undefined) && {
-        entryDate: toDate(
-          transaction.entryDate ||
-            (existing ? toDateInputValue(existing.entryDate) : undefined),
-          transaction.entryTime ||
-            (existing ? toTimeInputValue(existing.entryDate) : undefined),
-        ),
-      }),
-    },
+    const updatedTransaction = await tx.transaction.update({
+      where: { id },
+      data: {
+        ...(transaction.type && { type: transaction.type }),
+        ...(transaction.amount !== undefined && {
+          amount: new Prisma.Decimal(toAmount(transaction.amount)),
+        }),
+        ...(transaction.account !== undefined && {
+          account: transaction.account || null,
+        }),
+        ...(transaction.from !== undefined && {
+          from: transaction.from || null,
+        }),
+        ...(transaction.to !== undefined && { to: transaction.to || null }),
+        ...(transaction.direction !== undefined && {
+          direction: transaction.direction || null,
+        }),
+        ...(transaction.person !== undefined && {
+          person: transaction.person || null,
+        }),
+        ...(transaction.note !== undefined && { note: transaction.note || null }),
+        ...((transaction.transactionDate !== undefined ||
+          transaction.transactionTime !== undefined) && {
+          transactionDate: toDate(
+            nextTransaction.transactionDate,
+            nextTransaction.transactionTime,
+          ),
+        }),
+        ...((transaction.entryDate !== undefined ||
+          transaction.entryTime !== undefined) && {
+          entryDate: toDate(nextTransaction.entryDate, nextTransaction.entryTime),
+        }),
+      },
+    });
+    await rebuildBalances(tx);
+    return updatedTransaction;
   });
-  await rebuildBalances();
+
   return transactionFromDb(updated);
 }
 
 export async function deleteTransaction(id: string) {
-  await prisma.transaction.delete({ where: { id } });
-  await rebuildBalances();
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.delete({ where: { id } });
+    await rebuildBalances(tx);
+  });
   return id;
 }
 

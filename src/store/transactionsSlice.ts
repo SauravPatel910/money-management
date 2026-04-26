@@ -16,8 +16,11 @@ import {
   addAccount,
   updateAccount,
   deleteAccount,
-  calculateSummary,
 } from "../services/moneyService";
+import {
+  calculateSummary,
+  getTransactionTimestamp,
+} from "../lib/moneyCalculations";
 
 type SortOrder = "newest" | "oldest";
 type RequestStatus = "idle" | "loading" | "succeeded" | "failed";
@@ -134,13 +137,6 @@ const initialState: TransactionsState = {
   accountsStatus: "idle",
   accountsError: null,
 };
-
-const getTransactionTimestamp = (
-  transaction: Pick<MoneyTransaction, "transactionDate" | "transactionTime">,
-) =>
-  new Date(
-    `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00`,
-  ).getTime();
 
 const updateTransactions = (
   state: TransactionsState,
