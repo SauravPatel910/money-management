@@ -369,6 +369,10 @@ const AccountManager = () => {
   const [editingAccounts, setEditingAccounts] = useState<
     Record<string, Account>
   >({});
+  const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<
+    string | null
+  >(null);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
 
   // Memoized callbacks
   const handleAddAccount = useCallback(
@@ -376,7 +380,7 @@ const AccountManager = () => {
       e.preventDefault();
 
       if (!newAccount.name.trim()) {
-        alert("Please enter an account name");
+        setAccountMessage("Please enter an account name.");
         return;
       }
 
@@ -390,6 +394,7 @@ const AccountManager = () => {
 
       setNewAccount({ name: "", icon: "bank" });
       setIsAddingAccount(false);
+      setAccountMessage("Account added successfully.");
     },
     [dispatch, newAccount],
   );
@@ -406,7 +411,7 @@ const AccountManager = () => {
       }
 
       if (!accountToEdit.name.trim()) {
-        alert("Please enter an account name");
+        setAccountMessage("Please enter an account name.");
         return;
       }
 
@@ -426,39 +431,47 @@ const AccountManager = () => {
         delete updated[id];
         return updated;
       });
+      setAccountMessage("Account updated successfully.");
     },
     [accounts, dispatch, editingAccounts],
   );
 
   const handleDeleteAccount = useCallback(
     (id: string) => {
-      const account = accounts.find((acc) => acc.id === id);
-
       if (id === "cash") {
-        alert("The Cash account cannot be deleted.");
+        setAccountMessage("The Cash account cannot be deleted.");
         return;
       }
 
-      if (
-        confirm(
-          `Are you sure you want to delete the account "${account?.name || id}"?`,
-        )
-      ) {
-        dispatch(deleteAccountThunk(id))
-          .unwrap()
-          .then(() => {
-            // Success case handled automatically
-          })
-          .catch((error: Error) => {
-            // This will be called if the account has transactions
-            alert(
-              error.message || "Cannot delete account that has transactions",
-            );
-          });
-      }
+      setPendingDeleteAccountId(id);
+      setAccountMessage(null);
     },
-    [accounts, dispatch],
+    [],
   );
+
+  const handleCancelDeleteAccount = useCallback(() => {
+    setPendingDeleteAccountId(null);
+  }, []);
+
+  const handleConfirmDeleteAccount = useCallback(() => {
+    if (!pendingDeleteAccountId) {
+      return;
+    }
+
+    dispatch(deleteAccountThunk(pendingDeleteAccountId))
+      .unwrap()
+      .then(() => {
+        setAccountMessage("Account deleted successfully.");
+      })
+      .catch((error: Error) => {
+        setAccountMessage(
+          error.message || "Cannot delete account that has transactions",
+        );
+      })
+      .finally(() => {
+        setPendingDeleteAccountId(null);
+      });
+  }, [dispatch, pendingDeleteAccountId]);
 
   const handleInputChange = useCallback(
     (
@@ -493,10 +506,12 @@ const AccountManager = () => {
   const handleCancelAdd = useCallback(() => {
     setIsAddingAccount(false);
     setNewAccount({ name: "", icon: "bank" });
+    setAccountMessage(null);
   }, []);
 
   const handleCancelEdit = useCallback(() => {
     setEditingAccountId(null);
+    setAccountMessage(null);
   }, []);
 
   return (
@@ -526,6 +541,12 @@ const AccountManager = () => {
           </button>
         )}
       </div>
+
+      {accountMessage && (
+        <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+          {accountMessage}
+        </div>
+      )}
 
       {/* Add Account Form */}
       {isAddingAccount && (
@@ -564,6 +585,27 @@ const AccountManager = () => {
                 }}
                 onDelete={() => handleDeleteAccount(account.id)}
               />
+            )}
+            {pendingDeleteAccountId === account.id && (
+              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
+                <span>Delete account "{account.name}"?</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
+                    onClick={handleConfirmDeleteAccount}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+                    onClick={handleCancelDeleteAccount}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         ))}

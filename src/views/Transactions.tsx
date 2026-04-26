@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { ChangeEvent, SubmitEventHandler } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { SubmitEventHandler } from "react";
 import { useAppSelector } from "../config/reduxStore";
 import {
   toggleSortOrder as toggleSortOrderAction,
@@ -11,6 +11,8 @@ import {
 } from "../store/transactionsSlice";
 import { useAppData } from "../hooks/useAppData";
 import { useCommonUtils } from "../hooks/useCommonUtils";
+import { useTransactionForm } from "../hooks/useTransactionForm";
+import { useTransactionValidation } from "../hooks/useTransactionValidation";
 import { getCurrentIstDateTimeInputs } from "../utils/dateTime";
 import TransactionForm from "../components/forms/TransactionForm";
 import TransactionHistory from "../components/transactions/TransactionHistory";
@@ -22,7 +24,6 @@ import type {
   EditTransactionFormState,
   MoneyTransaction,
   TransactionFormFieldName,
-  TransactionType,
 } from "../types/money";
 
 const hiddenAutomaticDateTimeFields: TransactionFormFieldName[] = [
@@ -46,51 +47,63 @@ function TransactionHistoryPage() {
   const [editingTransactionId, setEditingTransactionId] = useState<
     string | null
   >(null);
-  const [editForm, setEditForm] = useState<EditTransactionFormState | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (editingTransactionId == null) {
-      return;
-    }
-
-    const updateLockedDateTimeFields = () => {
-      const latestDateTime = getCurrentIstDateTimeInputs();
-      setEditForm((prevForm) =>
-        prevForm
-          ? {
-              ...prevForm,
-              transactionTime: latestDateTime.time,
-              entryDate: latestDateTime.date,
-              entryTime: latestDateTime.time,
-            }
-          : prevForm,
-      );
-    };
-
-    updateLockedDateTimeFields();
-    const intervalId = window.setInterval(updateLockedDateTimeFields, 15000);
-
-    return () => window.clearInterval(intervalId);
-  }, [editingTransactionId]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const currentDateTime = getCurrentIstDateTimeInputs();
+  const {
+    form: editForm,
+    setForm: setEditForm,
+    handleInputChange: handleEditInputChange,
+    handleTypeChange: handleEditTypeChange,
+    handleSelectChange: handleEditSelectChange,
+  } = useTransactionForm<EditTransactionFormState>({
+    accounts,
+    lockDateTime: editingTransactionId !== null,
+    initialForm: {
+      type: "income",
+      amount: "",
+      transactionDate: currentDateTime.date,
+      transactionTime: currentDateTime.time,
+      entryDate: currentDateTime.date,
+      entryTime: currentDateTime.time,
+      account: "cash",
+      note: "",
+    },
+  });
+  const validateTransaction = useTransactionValidation(accounts);
 
   const handleToggleSortOrder = useCallback(() => {
     dispatch(toggleSortOrderAction());
   }, [dispatch]);
 
-  const handleDeleteTransaction = useCallback(
-    (id: string) => {
-      if (confirm("Are you sure you want to delete this transaction?")) {
-        if (editingTransactionId === id) {
-          setEditingTransactionId(null);
-          setEditForm(null);
-        }
-        dispatch(deleteTransactionThunk(id));
+  const handleDeleteTransaction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setPageMessage(null);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setPendingDeleteId(null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDeleteId) {
+      return;
+    }
+
+    try {
+      await dispatch(deleteTransactionThunk(pendingDeleteId)).unwrap();
+      if (editingTransactionId === pendingDeleteId) {
+        setEditingTransactionId(null);
       }
-    },
-    [dispatch, editingTransactionId],
-  );
+      setPageMessage("Transaction deleted.");
+    } catch (error) {
+      setPageMessage(
+        error instanceof Error ? error.message : "Failed to delete transaction.",
+      );
+    } finally {
+      setPendingDeleteId(null);
+    }
+  }, [dispatch, editingTransactionId, pendingDeleteId]);
 
   const normalizeTransactionForEdit = useCallback(
     (transaction: MoneyTransaction): EditTransactionFormState => {
@@ -125,121 +138,56 @@ function TransactionHistoryPage() {
     (transaction: MoneyTransaction) => {
       setEditingTransactionId(transaction.id);
       setEditForm(normalizeTransactionForEdit(transaction));
+      setPageMessage(null);
+      setPendingDeleteId(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [normalizeTransactionForEdit],
+    [normalizeTransactionForEdit, setEditForm],
   );
 
   const handleCancelEdit = useCallback(() => {
     setEditingTransactionId(null);
-    setEditForm(null);
+    setPageMessage(null);
   }, []);
 
-  const handleEditInputChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const { name, value } = e.target;
-      setEditForm((prevForm) =>
-        prevForm ? { ...prevForm, [name]: value } : prevForm,
-      );
-    },
-    [],
-  );
-
-  const handleEditTypeChange = useCallback(
-    (type: TransactionType) => {
-      setEditForm((prevForm) => {
-        if (!prevForm) {
-          return prevForm;
-        }
-        const newForm = { ...prevForm, type };
-
-        if (type === "income" || type === "expense") {
-          delete newForm.from;
-          delete newForm.to;
-          delete newForm.direction;
-          delete newForm.person;
-          newForm.account = newForm.account || "cash";
-        } else if (type === "transfer") {
-          delete newForm.account;
-          delete newForm.direction;
-          delete newForm.person;
-          newForm.from = newForm.from || "cash";
-          newForm.to =
-            newForm.to ||
-            accounts.find((account) => account.id !== newForm.from)?.id ||
-            "bank";
-        } else if (type === "person") {
-          delete newForm.from;
-          delete newForm.to;
-          newForm.direction = newForm.direction || "to";
-          newForm.account = newForm.account || "cash";
-          newForm.person = newForm.person || "";
-        }
-
-        return newForm;
-      });
-    },
-    [accounts],
-  );
-
-  const handleEditSelectChange = useCallback(
-    (e: ChangeEvent<HTMLSelectElement>) => {
-      const { name, value } = e.target;
-      setEditForm((prevForm) => {
-        if (!prevForm) {
-          return prevForm;
-        }
-        const nextForm = { ...prevForm, [name]: value };
-
-        if (name === "from" && value === prevForm.to) {
-          nextForm.to = prevForm.from;
-        } else if (name === "to" && value === prevForm.from) {
-          nextForm.from = prevForm.to;
-        }
-
-        return nextForm;
-      });
-    },
-    [],
-  );
-
   const handleUpdateTransaction = useCallback(
-    (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0]) => {
+    async (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0]) => {
       e.preventDefault();
-      if (!editForm || !editingTransactionId) {
+      if (!editingTransactionId) {
         return;
       }
 
-      const amount = parseFloat(String(editForm.amount));
-
-      if (amount <= 0) {
-        alert("Please enter a valid amount greater than 0");
-        return;
-      }
-
-      if (editForm.type === "transfer" && editForm.from === editForm.to) {
-        alert("You cannot transfer money to the same account");
+      const validation = validateTransaction(editForm);
+      if (!validation.ok) {
+        setPageMessage(validation.message);
         return;
       }
 
       const latestDateTime = getCurrentIstDateTimeInputs();
-      dispatch(
-        updateTransactionThunk({
+      try {
+        await dispatch(
+          updateTransactionThunk({
           id: editingTransactionId,
-          ...editForm,
-          amount,
+          ...validation.transaction,
           transactionTime: latestDateTime.time,
           entryDate: latestDateTime.date,
           entryTime: latestDateTime.time,
-        }),
-      );
-      setEditingTransactionId(null);
-      setEditForm(null);
+          }),
+        ).unwrap();
+        setEditingTransactionId(null);
+        setPageMessage("Transaction updated successfully.");
+      } catch (error) {
+        setPageMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to update transaction.",
+        );
+      }
     },
-    [dispatch, editForm, editingTransactionId],
+    [dispatch, editForm, editingTransactionId, validateTransaction],
   );
 
-  const sortedTransactions = useCallback(() => {
+  const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => {
       const timestampA = new Date(
         `${a.transactionDate}T${a.transactionTime || "00:00"}:00`,
@@ -280,7 +228,33 @@ function TransactionHistoryPage() {
       headerLinks={getNavigationLinks("transactions")}
       loadingText="Loading transaction history..."
     >
-      {editForm && (
+      {pageMessage && (
+        <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+          {pageMessage}
+        </div>
+      )}
+      {pendingDeleteId && (
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
+          <span>Delete this transaction?</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+              onClick={handleCancelDelete}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {editingTransactionId && (
         <div className="mb-8">
           <TransactionForm
             form={editForm}
@@ -302,7 +276,7 @@ function TransactionHistoryPage() {
         formatDate={formatDate}
         editTransaction={handleStartEdit}
         deleteTransaction={handleDeleteTransaction}
-        sortTransactions={sortedTransactions}
+        sortedTransactions={sortedTransactions}
       />
     </PageLayout>
   );

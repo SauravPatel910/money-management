@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo, useState } from "react";
 import { useAppSelector } from "../../config/reduxStore";
 import { selectAccounts } from "../../store/transactionsSlice";
 import type { Account, MoneyTransaction } from "../../types/money";
@@ -6,6 +6,7 @@ import type { Account, MoneyTransaction } from "../../types/money";
 type SortOrder = "newest" | "oldest";
 type FormatDate = (dateString: string, timeString?: string) => string;
 type GetAccountName = (accountId: string) => string;
+type AccountSummary = Pick<Account, "id" | "name">;
 
 type TransactionHistoryProps = {
   transactions: MoneyTransaction[];
@@ -14,7 +15,7 @@ type TransactionHistoryProps = {
   formatDate: FormatDate;
   editTransaction?: (transaction: MoneyTransaction) => void;
   deleteTransaction: (id: string) => void;
-  sortTransactions: () => MoneyTransaction[];
+  sortedTransactions: MoneyTransaction[];
 };
 
 const TransactionHistory = ({
@@ -24,18 +25,39 @@ const TransactionHistory = ({
   formatDate,
   editTransaction,
   deleteTransaction,
-  sortTransactions,
+  sortedTransactions,
 }: TransactionHistoryProps) => {
   const accounts = useAppSelector(selectAccounts);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  // Get account name from ID
-  const getAccountName: GetAccountName = (accountId) => {
-    const account = accounts.find((acc) => acc.id === accountId);
-    return account ? account.name : accountId;
-  };
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account.name])),
+    [accounts],
+  );
+  const accountSummaries = useMemo<AccountSummary[]>(
+    () => accounts.map(({ id, name }) => ({ id, name })),
+    [accounts],
+  );
+  const getAccountName = useMemo<GetAccountName>(
+    () => (accountId) => accountNameById.get(accountId) || accountId,
+    [accountNameById],
+  );
+  const filteredTransactions = useMemo(
+    () =>
+      sortedTransactions.filter((transaction) => {
+        if (dateFrom && transaction.transactionDate < dateFrom) {
+          return false;
+        }
 
-  // Get sorted transactions
-  const sortedTransactions = sortTransactions();
+        if (dateTo && transaction.transactionDate > dateTo) {
+          return false;
+        }
+
+        return true;
+      }),
+    [dateFrom, dateTo, sortedTransactions],
+  );
 
   return (
     <div className="rounded-2xl border-t-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
@@ -59,6 +81,39 @@ const TransactionHistory = ({
         </button>
       </div>
 
+      {transactions.length > 0 && (
+        <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <label className="text-sm font-medium text-primary-700">
+            From
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            />
+          </label>
+          <label className="text-sm font-medium text-primary-700">
+            To
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            className="rounded-lg border border-primary-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:bg-primary-50"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <svg
@@ -81,6 +136,22 @@ const TransactionHistory = ({
           <p className="text-sm font-medium text-primary-600">
             Add some to get started!
           </p>
+        </div>
+      ) : filteredTransactions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-primary-100 bg-white/70 py-12">
+          <p className="mb-2 text-center text-gray-500">
+            No transactions match the selected dates.
+          </p>
+          <button
+            type="button"
+            className="text-sm font-medium text-primary-600"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+          >
+            Clear filters
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-primary-100 shadow-md">
@@ -114,7 +185,7 @@ const TransactionHistory = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-100">
-              {sortedTransactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <TransactionRow
                   key={transaction.id}
                   transaction={transaction}
@@ -122,7 +193,7 @@ const TransactionHistory = ({
                   editTransaction={editTransaction}
                   deleteTransaction={deleteTransaction}
                   getAccountName={getAccountName}
-                  accounts={accounts}
+                  accounts={accountSummaries}
                 />
               ))}
             </tbody>
@@ -212,6 +283,32 @@ const getAmountPrefix = (transaction: MoneyTransaction) => {
   return "";
 };
 
+const getChangedAccountIds = (transaction: MoneyTransaction) => {
+  const changedAccounts: string[] = [];
+
+  if (transaction.account) {
+    changedAccounts.push(transaction.account);
+  }
+
+  if (transaction.type === "transfer") {
+    if (transaction.from && !changedAccounts.includes(transaction.from)) {
+      changedAccounts.push(transaction.from);
+    }
+    if (transaction.to && !changedAccounts.includes(transaction.to)) {
+      changedAccounts.push(transaction.to);
+    }
+  }
+
+  return changedAccounts;
+};
+
+const getTotalBalanceAtTransaction = (transaction: MoneyTransaction) =>
+  transaction.totalBalance ||
+  Object.values(transaction.accountBalances || {}).reduce(
+    (sum, balance) => sum + balance,
+    0,
+  );
+
 // Memoized individual transaction row component
 const TransactionRow = memo(
   ({
@@ -227,16 +324,11 @@ const TransactionRow = memo(
     editTransaction?: (transaction: MoneyTransaction) => void;
     deleteTransaction: (id: string) => void;
     getAccountName: GetAccountName;
-    accounts: Account[];
+    accounts: AccountSummary[];
   }) => {
-    // Get account balances at the time of this transaction
-
+    const changedAccountIds = getChangedAccountIds(transaction);
     const totalBalanceAtTransaction =
-      transaction.totalBalance ||
-      Object.values(transaction.accountBalances || {}).reduce(
-        (sum, balance) => sum + balance,
-        0,
-      );
+      getTotalBalanceAtTransaction(transaction);
 
     return (
       <tr
@@ -285,32 +377,7 @@ const TransactionRow = memo(
             {/* Default view - only show changed accounts + total */}
             <div className="flex flex-col space-y-1">
               {/* Only show accounts that were affected by this transaction */}
-              {(() => {
-                // Get accounts that were changed in this transaction
-                const changedAccounts: string[] = [];
-
-                // Add primary account if it exists
-                if (transaction.account) {
-                  changedAccounts.push(transaction.account);
-                }
-
-                // Add from/to accounts for transfers if they're different
-                if (transaction.type === "transfer") {
-                  if (
-                    transaction.from &&
-                    !changedAccounts.includes(transaction.from)
-                  ) {
-                    changedAccounts.push(transaction.from);
-                  }
-                  if (
-                    transaction.to &&
-                    !changedAccounts.includes(transaction.to)
-                  ) {
-                    changedAccounts.push(transaction.to);
-                  }
-                }
-
-                return changedAccounts.map((accountId) => (
+              {changedAccountIds.map((accountId) => (
                   <div
                     key={accountId}
                     className="flex items-center justify-between whitespace-nowrap"
@@ -327,8 +394,7 @@ const TransactionRow = memo(
                       })}
                     </span>
                   </div>
-                ));
-              })()}
+                ))}
 
               {/* Total balance - always visible */}
               <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-1 whitespace-nowrap">
