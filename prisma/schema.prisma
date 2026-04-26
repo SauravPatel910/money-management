@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Account {
+  id        String   @id
+  name      String
+  owner     String?
+  balance   Decimal  @default(0) @db.Decimal(14, 2)
+  icon      String   @default("bank")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("accounts")
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  type            String
+  amount          Decimal  @db.Decimal(14, 2)
+  account         String?
+  from            String?  @map("from_account")
+  to              String?  @map("to_account")
+  direction       String?
+  person          String?
+  note            String?
+  transactionDate DateTime @map("transaction_date")
+  entryDate       DateTime @map("entry_date")
+  accountBalances Json?    @map("account_balances")
+  totalBalance    Decimal  @default(0) @map("total_balance") @db.Decimal(14, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([transactionDate])
+  @@map("transactions")
+}
