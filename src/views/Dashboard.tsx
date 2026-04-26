@@ -1,10 +1,11 @@
 // @ts-nocheck
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { addTransactionThunk } from "../store/transactionsSlice";
 import { useAppData } from "../hooks/useAppData";
 import { useCommonUtils } from "../hooks/useCommonUtils";
+import { getCurrentIstDateTimeInputs } from "../utils/dateTime";
 import TransactionForm from "../components/forms/TransactionForm";
 import RecentActivity from "../components/transactions/RecentActivity";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
@@ -12,17 +13,44 @@ import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
 
+const hiddenAutomaticDateTimeFields = [
+  "transactionTime",
+  "entryDate",
+  "entryTime",
+];
+
 function Dashboard() {
   const { transactions, accounts, dispatch, status, error } = useAppData();
   const { formatDate } = useCommonUtils();
+  const currentDateTime = getCurrentIstDateTimeInputs();
 
   const [form, setForm] = useState({
     type: "income",
     amount: "",
-    transactionDate: new Date().toISOString().split("T")[0],
+    transactionDate: currentDateTime.date,
+    transactionTime: currentDateTime.time,
+    entryDate: currentDateTime.date,
+    entryTime: currentDateTime.time,
     account: "cash",
     note: "",
   });
+
+  useEffect(() => {
+    const updateLockedDateTimeFields = () => {
+      const latestDateTime = getCurrentIstDateTimeInputs();
+      setForm((prevForm) => ({
+        ...prevForm,
+        transactionTime: latestDateTime.time,
+        entryDate: latestDateTime.date,
+        entryTime: latestDateTime.time,
+      }));
+    };
+
+    updateLockedDateTimeFields();
+    const intervalId = window.setInterval(updateLockedDateTimeFields, 15000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   // Memoized function for handling input changes
   const handleInputChange = useCallback((e) => {
@@ -126,16 +154,27 @@ function Dashboard() {
         }
       }
 
+      const latestDateTime = getCurrentIstDateTimeInputs();
       const newTransaction = {
         ...form,
         amount,
-        entryDate: new Date().toISOString().split("T")[0],
+        transactionTime: latestDateTime.time,
+        entryDate: latestDateTime.date,
+        entryTime: latestDateTime.time,
       };
 
       dispatch(addTransactionThunk(newTransaction));
 
       setForm((prevForm) => {
-        const resetForm = { ...prevForm, amount: "", note: "" };
+        const latestDateTime = getCurrentIstDateTimeInputs();
+        const resetForm = {
+          ...prevForm,
+          amount: "",
+          note: "",
+          transactionTime: latestDateTime.time,
+          entryDate: latestDateTime.date,
+          entryTime: latestDateTime.time,
+        };
         if (form.type === "person") {
           resetForm.person = "";
         }
@@ -168,6 +207,7 @@ function Dashboard() {
           handleTypeChange={handleTypeChange}
           handleSelectChange={handleSelectChange}
           addTransaction={handleAddTransaction}
+          hiddenFields={hiddenAutomaticDateTimeFields}
         />
 
         <RecentActivity transactions={transactions} formatDate={formatDate} />

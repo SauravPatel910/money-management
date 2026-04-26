@@ -4,6 +4,7 @@ import {
   fetchTransactions,
   fetchAccounts,
   addTransaction,
+  updateTransaction,
   deleteTransaction,
   addAccount,
   updateAccount,
@@ -30,6 +31,18 @@ export const addTransactionThunk = createAsyncThunk(
   "transactions/addTransaction",
   async (transaction) => {
     await addTransaction(transaction);
+    const [processedTransactions, updatedAccounts] = await Promise.all([
+      fetchTransactions(),
+      fetchAccounts(),
+    ]);
+    return { processedTransactions, updatedAccounts };
+  },
+);
+
+export const updateTransactionThunk = createAsyncThunk(
+  "transactions/updateTransaction",
+  async ({ id, ...transaction }) => {
+    await updateTransaction(id, transaction);
     const [processedTransactions, updatedAccounts] = await Promise.all([
       fetchTransactions(),
       fetchAccounts(),
@@ -94,6 +107,11 @@ const initialState = {
   error: null,
 };
 
+const getTransactionTimestamp = (transaction) =>
+  new Date(
+    `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00`,
+  ).getTime();
+
 export const transactionsSlice = createSlice({
   name: "transactions",
   initialState,
@@ -113,7 +131,7 @@ export const transactionsSlice = createSlice({
         state.transactions = action.payload;
         // Ensure transactions are sorted by date (oldest first)
         state.transactions.sort(
-          (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
         );
         state.summary = calculateSummary(action.payload);
       })
@@ -140,7 +158,17 @@ export const transactionsSlice = createSlice({
         state.transactions = action.payload.processedTransactions;
         // Sort transactions by transaction date with newest transactions last
         state.transactions.sort(
-          (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate),
+          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
+        );
+        state.summary = calculateSummary(state.transactions);
+        state.accounts = action.payload.updatedAccounts;
+      })
+
+      // Update Transaction
+      .addCase(updateTransactionThunk.fulfilled, (state, action) => {
+        state.transactions = action.payload.processedTransactions;
+        state.transactions.sort(
+          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
         );
         state.summary = calculateSummary(state.transactions);
         state.accounts = action.payload.updatedAccounts;

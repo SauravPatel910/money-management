@@ -20,7 +20,9 @@ export type MoneyTransaction = {
   person?: string | null;
   note?: string | null;
   transactionDate: string;
+  transactionTime?: string;
   entryDate: string;
+  entryTime?: string;
   accountBalances?: Record<string, number> | null;
   totalBalance?: number;
 };

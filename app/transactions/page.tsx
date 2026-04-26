@@ -1,4 +1,4 @@
-import TransactionHistoryPage from "@/pages/Transactions";
+import TransactionHistoryPage from "@/views/Transactions";
 
 export default function TransactionsPage() {
   return <TransactionHistoryPage />;

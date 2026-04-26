@@ -9,12 +9,19 @@ const DEFAULT_ACCOUNTS: Account[] = [
 
 const toAmount = (value: unknown) => Number(value) || 0;
 
-const toDate = (value?: string | null) => {
+const toDate = (value?: string | null, time?: string | null) => {
   const dateValue = value || new Date().toISOString().slice(0, 10);
-  return new Date(`${dateValue}T00:00:00.000Z`);
+  const timeValue = (time || "00:00").slice(0, 5);
+  return new Date(`${dateValue}T${timeValue}:00.000Z`);
 };
 
 const toDateInputValue = (value: Date) => value.toISOString().slice(0, 10);
+const toTimeInputValue = (value: Date) => value.toISOString().slice(11, 16);
+
+const getTransactionTimestamp = (transaction: Pick<MoneyTransaction, "transactionDate" | "transactionTime">) =>
+  new Date(
+    `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00.000Z`,
+  ).getTime();
 
 const accountFromDb = (account: {
   id: string;
@@ -55,7 +62,9 @@ const transactionFromDb = (transaction: {
   person: transaction.person,
   note: transaction.note,
   transactionDate: toDateInputValue(transaction.transactionDate),
+  transactionTime: toTimeInputValue(transaction.transactionDate),
   entryDate: toDateInputValue(transaction.entryDate),
+  entryTime: toTimeInputValue(transaction.entryDate),
   accountBalances: (transaction.accountBalances ?? {}) as Record<string, number>,
   totalBalance: transaction.totalBalance.toNumber(),
 });
@@ -69,8 +78,8 @@ const normalizeTransactionInput = (transaction: TransactionInput) => ({
   direction: transaction.direction || null,
   person: transaction.person || null,
   note: transaction.note || null,
-  transactionDate: toDate(transaction.transactionDate),
-  entryDate: toDate(transaction.entryDate),
+  transactionDate: toDate(transaction.transactionDate, transaction.transactionTime),
+  entryDate: toDate(transaction.entryDate, transaction.entryTime),
 });
 
 export const calculateSummary = (transactions: MoneyTransaction[] = []) => {
@@ -98,9 +107,7 @@ export const recalculateBalances = (
   );
 
   const sortedTransactions = [...transactions].sort(
-    (a, b) =>
-      new Date(a.transactionDate).getTime() -
-      new Date(b.transactionDate).getTime(),
+    (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
   );
 
   const processedTransactions = sortedTransactions.map((transaction) => {
@@ -229,6 +236,12 @@ export async function updateTransaction(
   id: string,
   transaction: Partial<TransactionInput>,
 ) {
+  const existing =
+    (transaction.transactionTime && !transaction.transactionDate) ||
+    (transaction.entryTime && !transaction.entryDate)
+      ? await prisma.transaction.findUniqueOrThrow({ where: { id } })
+      : null;
+
   const updated = await prisma.transaction.update({
     where: { id },
     data: {
@@ -248,10 +261,24 @@ export async function updateTransaction(
         person: transaction.person || null,
       }),
       ...(transaction.note !== undefined && { note: transaction.note || null }),
-      ...(transaction.transactionDate && {
-        transactionDate: toDate(transaction.transactionDate),
+      ...((transaction.transactionDate !== undefined ||
+        transaction.transactionTime !== undefined) && {
+        transactionDate: toDate(
+          transaction.transactionDate ||
+            (existing ? toDateInputValue(existing.transactionDate) : undefined),
+          transaction.transactionTime ||
+            (existing ? toTimeInputValue(existing.transactionDate) : undefined),
+        ),
       }),
-      ...(transaction.entryDate && { entryDate: toDate(transaction.entryDate) }),
+      ...((transaction.entryDate !== undefined ||
+        transaction.entryTime !== undefined) && {
+        entryDate: toDate(
+          transaction.entryDate ||
+            (existing ? toDateInputValue(existing.entryDate) : undefined),
+          transaction.entryTime ||
+            (existing ? toTimeInputValue(existing.entryDate) : undefined),
+        ),
+      }),
     },
   });
   await rebuildBalances();

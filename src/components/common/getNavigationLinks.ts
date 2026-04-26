@@ -1,4 +1,6 @@
-export const getNavigationLinks = (currentPage) => {
+type NavigationPage = "dashboard" | "accounts" | "transactions";
+
+export const getNavigationLinks = (currentPage: NavigationPage) => {
   const allLinks = {
     dashboard: { to: "/", text: "Dashboard" },
     accounts: { to: "/accounts", text: "Manage Accounts" },

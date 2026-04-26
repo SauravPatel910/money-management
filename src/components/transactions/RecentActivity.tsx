@@ -190,7 +190,10 @@ const ActivityItem = memo(({ transaction, formatDate, getAccountName }) => {
         </div>
         <div>
           <div className="text-sm text-gray-500">
-            {formatDate(transaction.transactionDate)} •{" "}
+            {formatDate(
+              transaction.transactionDate,
+              transaction.transactionTime,
+            )} •{" "}
             {getTransactionDescription(transaction, getAccountName)}
           </div>
           {transaction.note && (

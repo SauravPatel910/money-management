@@ -8,6 +8,7 @@ const TransactionHistory = ({
   sortOrder,
   toggleSortOrder,
   formatDate,
+  editTransaction,
   deleteTransaction,
   sortTransactions,
 }) => {
@@ -104,6 +105,7 @@ const TransactionHistory = ({
                   key={transaction.id}
                   transaction={transaction}
                   formatDate={formatDate}
+                  editTransaction={editTransaction}
                   deleteTransaction={deleteTransaction}
                   getAccountName={getAccountName}
                   accounts={accounts}
@@ -198,6 +200,7 @@ const TransactionRow = memo(
   ({
     transaction,
     formatDate,
+    editTransaction,
     deleteTransaction,
     getAccountName,
     accounts,
@@ -218,10 +221,10 @@ const TransactionRow = memo(
         )}`}
       >
         <td className="px-4 py-3 text-sm whitespace-nowrap">
-          {formatDate(transaction.transactionDate)}
+          {formatDate(transaction.transactionDate, transaction.transactionTime)}
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap">
-          {formatDate(transaction.entryDate)}
+          {formatDate(transaction.entryDate, transaction.entryTime)}
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap capitalize">
           <span
@@ -373,6 +376,27 @@ const TransactionRow = memo(
           </div>
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap">
+          {editTransaction && (
+            <button
+              className="mr-2 transform rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+              onClick={() => editTransaction(transaction)}
+            >
+              <svg
+                className="mr-1 inline h-3 w-3"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                <path
+                  fillRule="evenodd"
+                  d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Edit
+            </button>
+          )}
           <button
             className="transform rounded-lg bg-gradient-to-r from-expense to-expense-dark px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
             onClick={() => deleteTransaction(transaction.id)}

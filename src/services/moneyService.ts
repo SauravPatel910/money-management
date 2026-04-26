@@ -2,6 +2,13 @@ import type { Account, AccountInput, MoneyTransaction, TransactionInput } from "
 
 const toAmount = (value: unknown) => Number(value) || 0;
 
+const getTransactionTimestamp = (
+  transaction: Pick<MoneyTransaction, "transactionDate" | "transactionTime">,
+) =>
+  new Date(
+    `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00.000Z`,
+  ).getTime();
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -44,9 +51,7 @@ export const recalculateBalances = (
   );
 
   const sortedTransactions = [...transactions].sort(
-    (a, b) =>
-      new Date(a.transactionDate).getTime() -
-      new Date(b.transactionDate).getTime(),
+    (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
   );
 
   const processedTransactions = sortedTransactions.map((transaction) => {

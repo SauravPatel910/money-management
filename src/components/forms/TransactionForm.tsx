@@ -12,6 +12,12 @@ const TransactionForm = ({
   handleTypeChange,
   handleSelectChange,
   addTransaction,
+  title = "Add Transaction",
+  submitLabel = "Add Transaction",
+  submitIcon,
+  onCancel,
+  disabledFields = [],
+  hiddenFields = [],
 }) => {
   const accounts = useSelector(selectAccounts);
 
@@ -46,8 +52,26 @@ const TransactionForm = ({
       },
       transactionDate: {
         component: Input,
-        label: "Date",
+        label: "Transaction Date",
         type: "date",
+        required: true,
+      },
+      transactionTime: {
+        component: Input,
+        label: "Transaction Time",
+        type: "time",
+        required: true,
+      },
+      entryDate: {
+        component: Input,
+        label: "Entry Date",
+        type: "date",
+        required: true,
+      },
+      entryTime: {
+        component: Input,
+        label: "Entry Time",
+        type: "time",
         required: true,
       },
 
@@ -113,7 +137,9 @@ const TransactionForm = ({
       },
     };
 
-    return Object.entries(fieldMap).map(([name, config]) => {
+    return Object.entries(fieldMap)
+      .filter(([name]) => !hiddenFields.includes(name))
+      .map(([name, config]) => {
       const Component = config.component;
       const isNote = name === "note";
       const value = form[name] || config.defaultValue || "";
@@ -132,11 +158,12 @@ const TransactionForm = ({
             {...(config.placeholder && { placeholder: config.placeholder })}
             {...(config.options && { options: config.options })}
             {...(config.required && { required: config.required })}
+            disabled={disabledFields.includes(name)}
           />
         </div>
       );
     });
-  }, [form, accountOptions, handleInputChange, handleSelectChange]);
+  }, [form, accountOptions, handleInputChange, handleSelectChange, hiddenFields]);
 
   const addTransactionIcon = (
     <svg
@@ -216,7 +243,7 @@ const TransactionForm = ({
   return (
     <div className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
       <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
-        Add Transaction
+        {title}
       </h3>
       <form onSubmit={addTransaction}>
         <div className="mb-4">
@@ -263,10 +290,23 @@ const TransactionForm = ({
 
         {renderFields}
 
-        <div>
-          <Button variant="action" htmlType="submit" icon={addTransactionIcon}>
-            Add Transaction
+        <div className={onCancel ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : ""}>
+          <Button
+            variant="action"
+            htmlType="submit"
+            icon={submitIcon || addTransactionIcon}
+          >
+            {submitLabel}
           </Button>
+          {onCancel && (
+            <button
+              type="button"
+              className="flex w-full transform items-center justify-center rounded-lg border border-primary-200 bg-white px-6 py-3 text-center font-medium text-primary-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-50 hover:shadow-md focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </form>
     </div>
