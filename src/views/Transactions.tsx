@@ -6,7 +6,11 @@ import { useAppSelector } from "../config/reduxStore";
 import {
   toggleSortOrder as toggleSortOrderAction,
   deleteTransactionThunk,
+  fetchTransactionEditHistoryThunk,
   updateTransactionThunk,
+  selectTransactionEditHistory,
+  selectTransactionEditHistoryError,
+  selectTransactionEditHistoryStatus,
   selectSortOrder,
 } from "../store/transactionsSlice";
 import { useAppData } from "../hooks/useAppData";
@@ -47,6 +51,8 @@ function TransactionHistoryPage() {
   const [editingTransactionId, setEditingTransactionId] = useState<
     string | null
   >(null);
+  const [expandedHistoryTransactionId, setExpandedHistoryTransactionId] =
+    useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const currentDateTime = getCurrentIstDateTimeInputs();
@@ -71,6 +77,21 @@ function TransactionHistoryPage() {
     },
   });
   const validateTransaction = useTransactionValidation(accounts);
+  const selectedEditHistory = useAppSelector((state) =>
+    expandedHistoryTransactionId
+      ? selectTransactionEditHistory(expandedHistoryTransactionId)(state)
+      : [],
+  );
+  const selectedEditHistoryStatus = useAppSelector((state) =>
+    expandedHistoryTransactionId
+      ? selectTransactionEditHistoryStatus(expandedHistoryTransactionId)(state)
+      : "idle",
+  );
+  const selectedEditHistoryError = useAppSelector((state) =>
+    expandedHistoryTransactionId
+      ? selectTransactionEditHistoryError(expandedHistoryTransactionId)(state)
+      : null,
+  );
 
   const handleToggleSortOrder = useCallback(() => {
     dispatch(toggleSortOrderAction());
@@ -80,6 +101,20 @@ function TransactionHistoryPage() {
     setPendingDeleteId(id);
     setPageMessage(null);
   }, []);
+
+  const handleToggleTransactionHistory = useCallback(
+    (id: string) => {
+      const nextTransactionId = expandedHistoryTransactionId === id ? null : id;
+      setExpandedHistoryTransactionId(nextTransactionId);
+      setPageMessage(null);
+      setPendingDeleteId(null);
+
+      if (nextTransactionId) {
+        dispatch(fetchTransactionEditHistoryThunk(nextTransactionId));
+      }
+    },
+    [dispatch, expandedHistoryTransactionId],
+  );
 
   const handleCancelDelete = useCallback(() => {
     setPendingDeleteId(null);
@@ -95,6 +130,9 @@ function TransactionHistoryPage() {
       if (editingTransactionId === pendingDeleteId) {
         setEditingTransactionId(null);
       }
+      if (expandedHistoryTransactionId === pendingDeleteId) {
+        setExpandedHistoryTransactionId(null);
+      }
       setPageMessage("Transaction deleted.");
     } catch (error) {
       setPageMessage(
@@ -103,7 +141,7 @@ function TransactionHistoryPage() {
     } finally {
       setPendingDeleteId(null);
     }
-  }, [dispatch, editingTransactionId, pendingDeleteId]);
+  }, [dispatch, editingTransactionId, expandedHistoryTransactionId, pendingDeleteId]);
 
   const normalizeTransactionForEdit = useCallback(
     (transaction: MoneyTransaction): EditTransactionFormState => {
@@ -276,6 +314,11 @@ function TransactionHistoryPage() {
         formatDate={formatDate}
         editTransaction={handleStartEdit}
         deleteTransaction={handleDeleteTransaction}
+        toggleTransactionHistory={handleToggleTransactionHistory}
+        expandedHistoryTransactionId={expandedHistoryTransactionId}
+        selectedEditHistory={selectedEditHistory}
+        selectedEditHistoryStatus={selectedEditHistoryStatus}
+        selectedEditHistoryError={selectedEditHistoryError}
         sortedTransactions={sortedTransactions}
       />
     </PageLayout>

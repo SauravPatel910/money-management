@@ -4,6 +4,9 @@ import type {
   Account,
   AccountInput,
   MoneyTransaction,
+  TransactionEditChangedField,
+  TransactionEditHistory,
+  TransactionEditSnapshot,
   TransactionInput,
   TransactionType,
 } from "@/types/money";
@@ -21,6 +24,18 @@ const SUPPORTED_TRANSACTION_TYPES: TransactionType[] = [
   "expense",
   "transfer",
   "person",
+];
+const AUDITED_TRANSACTION_FIELDS: Array<keyof TransactionInput> = [
+  "type",
+  "amount",
+  "account",
+  "from",
+  "to",
+  "direction",
+  "person",
+  "note",
+  "transactionDate",
+  "transactionTime",
 ];
 
 const toDate = (value?: string | null, time?: string | null) => {
@@ -105,6 +120,46 @@ const dbTransactionToInput = (transaction: DbTransaction): TransactionInput => (
   entryDate: toDateInputValue(transaction.entryDate),
   entryTime: toTimeInputValue(transaction.entryDate),
 });
+
+const transactionEditHistoryFromDb = (history: {
+  id: string;
+  transactionId: string;
+  editedAt: Date;
+  beforeSnapshot: Prisma.JsonValue;
+  afterSnapshot: Prisma.JsonValue;
+  changedFields: Prisma.JsonValue;
+}): TransactionEditHistory => ({
+  id: history.id,
+  transactionId: history.transactionId,
+  editedAt: history.editedAt.toISOString(),
+  before: history.beforeSnapshot as TransactionEditSnapshot,
+  after: history.afterSnapshot as TransactionEditSnapshot,
+  changedFields: history.changedFields as TransactionEditChangedField[],
+});
+
+const toSnapshotValue = (value: TransactionInput[keyof TransactionInput]) =>
+  value ?? null;
+
+const getChangedFields = (
+  before: TransactionEditSnapshot,
+  after: TransactionEditSnapshot,
+): TransactionEditChangedField[] =>
+  AUDITED_TRANSACTION_FIELDS.flatMap((field) => {
+    const beforeValue = toSnapshotValue(before[field]);
+    const afterValue = toSnapshotValue(after[field]);
+
+    if (Object.is(beforeValue, afterValue)) {
+      return [];
+    }
+
+    return [
+      {
+        field,
+        before: beforeValue,
+        after: afterValue,
+      },
+    ];
+  });
 
 const trimField = (value?: string | null) => value?.trim() || "";
 
@@ -193,6 +248,15 @@ export async function listTransactions() {
   return listTransactionsFromDb(prisma);
 }
 
+export async function listTransactionEditHistory(transactionId: string) {
+  const history = await prisma.transactionEditHistory.findMany({
+    where: { transactionId },
+    orderBy: { editedAt: "desc" },
+  });
+
+  return history.map(transactionEditHistoryFromDb);
+}
+
 async function rebuildBalances(client: PrismaClientOrTransaction) {
   const [accounts, transactions] = await Promise.all([
     listAccountsFromDb(client),
@@ -254,8 +318,9 @@ export async function updateTransaction(
 ) {
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await tx.transaction.findUniqueOrThrow({ where: { id } });
+    const beforeSnapshot = dbTransactionToInput(existing);
     const nextTransaction: TransactionInput = {
-      ...dbTransactionToInput(existing),
+      ...beforeSnapshot,
       ...transaction,
     };
     validateTransactionInput(nextTransaction);
@@ -294,6 +359,20 @@ export async function updateTransaction(
         }),
       },
     });
+
+    const afterSnapshot = dbTransactionToInput(updatedTransaction);
+    await tx.transactionEditHistory.create({
+      data: {
+        transactionId: id,
+        beforeSnapshot: beforeSnapshot as Prisma.InputJsonValue,
+        afterSnapshot: afterSnapshot as Prisma.InputJsonValue,
+        changedFields: getChangedFields(
+          beforeSnapshot,
+          afterSnapshot,
+        ) as Prisma.InputJsonValue,
+      },
+    });
+
     await rebuildBalances(tx);
     return updatedTransaction;
   });

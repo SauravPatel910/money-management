@@ -27,6 +27,23 @@ export type MoneyTransaction = {
   totalBalance?: number;
 };
 
+export type TransactionEditChangedField = {
+  field: string;
+  before: string | number | null;
+  after: string | number | null;
+};
+
+export type TransactionEditSnapshot = TransactionInput;
+
+export type TransactionEditHistory = {
+  id: string;
+  transactionId: string;
+  editedAt: string;
+  before: TransactionEditSnapshot;
+  after: TransactionEditSnapshot;
+  changedFields: TransactionEditChangedField[];
+};
+
 export type TransactionInput = Omit<
   MoneyTransaction,
   "id" | "accountBalances" | "totalBalance"

@@ -5,12 +5,14 @@ import type {
   AccountInput,
   MoneyTransaction,
   Summary,
+  TransactionEditHistory,
   TransactionInput,
 } from "../types/money";
 import {
   fetchTransactions,
   fetchAccounts,
   addTransaction,
+  fetchTransactionEditHistory,
   updateTransaction,
   deleteTransaction,
   addAccount,
@@ -34,6 +36,9 @@ type TransactionsState = {
   transactionsError: string | null;
   accountsStatus: RequestStatus;
   accountsError: string | null;
+  editHistoryByTransactionId: Record<string, TransactionEditHistory[]>;
+  editHistoryStatusByTransactionId: Record<string, RequestStatus>;
+  editHistoryErrorByTransactionId: Record<string, string | null>;
 };
 
 type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
@@ -80,6 +85,14 @@ export const updateTransactionThunk = createAsyncThunk(
     await updateTransaction(id, transaction);
     return fetchFreshMoneyData();
   },
+);
+
+export const fetchTransactionEditHistoryThunk = createAsyncThunk(
+  "transactions/fetchTransactionEditHistory",
+  async (transactionId: string) => ({
+    transactionId,
+    history: await fetchTransactionEditHistory(transactionId),
+  }),
 );
 
 export const deleteTransactionThunk = createAsyncThunk(
@@ -136,6 +149,9 @@ const initialState: TransactionsState = {
   transactionsError: null,
   accountsStatus: "idle",
   accountsError: null,
+  editHistoryByTransactionId: {},
+  editHistoryStatusByTransactionId: {},
+  editHistoryErrorByTransactionId: {},
 };
 
 const updateTransactions = (
@@ -212,9 +228,32 @@ export const transactionsSlice = createSlice({
       // Update Transaction
       .addCase(updateTransactionThunk.fulfilled, (state, action) => {
         applyFreshMoneyData(state, action.payload);
+        const transactionId = action.meta.arg.id;
+        delete state.editHistoryByTransactionId[transactionId];
+        state.editHistoryStatusByTransactionId[transactionId] = "idle";
+        state.editHistoryErrorByTransactionId[transactionId] = null;
       })
       .addCase(updateTransactionThunk.rejected, (state, action) => {
         state.transactionsError = action.error.message ?? null;
+      })
+
+      // Fetch Transaction Edit History
+      .addCase(fetchTransactionEditHistoryThunk.pending, (state, action) => {
+        const transactionId = action.meta.arg;
+        state.editHistoryStatusByTransactionId[transactionId] = "loading";
+        state.editHistoryErrorByTransactionId[transactionId] = null;
+      })
+      .addCase(fetchTransactionEditHistoryThunk.fulfilled, (state, action) => {
+        const { transactionId, history } = action.payload;
+        state.editHistoryByTransactionId[transactionId] = history;
+        state.editHistoryStatusByTransactionId[transactionId] = "succeeded";
+        state.editHistoryErrorByTransactionId[transactionId] = null;
+      })
+      .addCase(fetchTransactionEditHistoryThunk.rejected, (state, action) => {
+        const transactionId = action.meta.arg;
+        state.editHistoryStatusByTransactionId[transactionId] = "failed";
+        state.editHistoryErrorByTransactionId[transactionId] =
+          action.error.message ?? null;
       })
 
       // Delete Transaction
@@ -280,5 +319,15 @@ export const selectAccountsStatus = (state: RootState) =>
   state.transactions.accountsStatus;
 export const selectAccountsError = (state: RootState) =>
   state.transactions.accountsError;
+export const selectTransactionEditHistory =
+  (transactionId: string) => (state: RootState) =>
+    state.transactions.editHistoryByTransactionId[transactionId] ?? [];
+export const selectTransactionEditHistoryStatus =
+  (transactionId: string) => (state: RootState) =>
+    state.transactions.editHistoryStatusByTransactionId[transactionId] ??
+    "idle";
+export const selectTransactionEditHistoryError =
+  (transactionId: string) => (state: RootState) =>
+    state.transactions.editHistoryErrorByTransactionId[transactionId] ?? null;
 
 export default transactionsSlice.reducer;

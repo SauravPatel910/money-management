@@ -216,7 +216,7 @@ const ActivityItem = memo(
               • {getTransactionDescription(transaction, getAccountName)}
             </div>
             {transaction.note && (
-              <div className="mt-0.5 max-w-[150px] truncate text-xs text-gray-500">
+              <div className="mt-0.5 max-w-37.5 truncate text-xs text-gray-500">
                 {transaction.note}
               </div>
             )}

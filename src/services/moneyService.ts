@@ -1,4 +1,10 @@
-import type { Account, AccountInput, MoneyTransaction, TransactionInput } from "@/types/money";
+import type {
+  Account,
+  AccountInput,
+  MoneyTransaction,
+  TransactionEditHistory,
+  TransactionInput,
+} from "@/types/money";
 export { calculateSummary, recalculateBalances } from "@/lib/moneyCalculations";
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -37,6 +43,9 @@ export const updateTransaction = async (
     method: "PATCH",
     body: JSON.stringify(transaction),
   });
+
+export const fetchTransactionEditHistory = async (id: string) =>
+  requestJson<TransactionEditHistory[]>(`/api/transactions/${id}/history`);
 
 export const deleteTransaction = async (id: string) => {
   await requestJson<{ id: string }>(`/api/transactions/${id}`, {

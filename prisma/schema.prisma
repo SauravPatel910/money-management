@@ -34,10 +34,25 @@ model Transaction {
   totalBalance    Decimal  @default(0) @map("total_balance") @db.Decimal(14, 2)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  editHistory     TransactionEditHistory[]
 
   @@index([account])
   @@index([from])
   @@index([to])
   @@index([transactionDate])
   @@map("transactions")
+}
+
+model TransactionEditHistory {
+  id             String      @id @default(cuid())
+  transactionId  String      @map("transaction_id")
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  editedAt       DateTime    @default(now()) @map("edited_at")
+  beforeSnapshot Json        @map("before_snapshot")
+  afterSnapshot  Json        @map("after_snapshot")
+  changedFields  Json        @map("changed_fields")
+
+  @@index([transactionId])
+  @@index([editedAt])
+  @@map("transaction_edit_history")
 }
