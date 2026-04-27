@@ -350,6 +350,8 @@ const HISTORY_FIELD_LABELS: Record<string, string> = {
   note: "Note",
   transactionDate: "Transaction date",
   transactionTime: "Transaction time",
+  entryDate: "Entry date",
+  entryTime: "Entry time",
 };
 
 const formatHistoryValue = (
@@ -371,6 +373,10 @@ const formatHistoryValue = (
   }
 
   if (field === "transactionDate") {
+    return formatDate(String(value));
+  }
+
+  if (field === "entryDate") {
     return formatDate(String(value));
   }
 

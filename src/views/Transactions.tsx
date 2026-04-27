@@ -27,6 +27,7 @@ import Failed from "../components/UI/Failed";
 import type {
   EditTransactionFormState,
   MoneyTransaction,
+  TransactionEditHistory,
   TransactionFormFieldName,
 } from "../types/money";
 
@@ -35,6 +36,7 @@ const hiddenAutomaticDateTimeFields: TransactionFormFieldName[] = [
   "entryDate",
   "entryTime",
 ];
+const emptyEditHistory: TransactionEditHistory[] = [];
 
 function TransactionHistoryPage() {
   const {
@@ -80,7 +82,7 @@ function TransactionHistoryPage() {
   const selectedEditHistory = useAppSelector((state) =>
     expandedHistoryTransactionId
       ? selectTransactionEditHistory(expandedHistoryTransactionId)(state)
-      : [],
+      : emptyEditHistory,
   );
   const selectedEditHistoryStatus = useAppSelector((state) =>
     expandedHistoryTransactionId

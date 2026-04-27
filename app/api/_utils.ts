@@ -179,6 +179,9 @@ export const validateTransactionPayload = (
   if (direction !== undefined) transaction.direction = direction;
   if (person !== undefined) transaction.person = person;
   if (note !== undefined) transaction.note = note;
+  if (mode === "update" && payload.note !== undefined && note === undefined) {
+    transaction.note = "";
+  }
   if (transactionDate !== undefined) transaction.transactionDate = transactionDate;
   if (transactionTime !== undefined) transaction.transactionTime = transactionTime;
   if (entryDate !== undefined) transaction.entryDate = entryDate;

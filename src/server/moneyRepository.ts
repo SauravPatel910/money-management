@@ -25,6 +25,10 @@ const SUPPORTED_TRANSACTION_TYPES: TransactionType[] = [
   "transfer",
   "person",
 ];
+const MONEY_TRANSACTION_OPTIONS = {
+  maxWait: 10000,
+  timeout: 30000,
+};
 const AUDITED_TRANSACTION_FIELDS: Array<keyof TransactionInput> = [
   "type",
   "amount",
@@ -36,6 +40,8 @@ const AUDITED_TRANSACTION_FIELDS: Array<keyof TransactionInput> = [
   "note",
   "transactionDate",
   "transactionTime",
+  "entryDate",
+  "entryTime",
 ];
 
 const toDate = (value?: string | null, time?: string | null) => {
@@ -299,15 +305,18 @@ async function rebuildBalances(client: PrismaClientOrTransaction) {
 export async function createTransaction(transaction: TransactionInput) {
   validateTransactionInput(transaction);
 
-  const refreshed = await prisma.$transaction(async (tx) => {
-    const created = await tx.transaction.create({
-      data: normalizeTransactionInput(transaction),
-    });
-    await rebuildBalances(tx);
-    return tx.transaction.findUniqueOrThrow({
-      where: { id: created.id },
-    });
-  });
+  const refreshed = await prisma.$transaction(
+    async (tx) => {
+      const created = await tx.transaction.create({
+        data: normalizeTransactionInput(transaction),
+      });
+      await rebuildBalances(tx);
+      return tx.transaction.findUniqueOrThrow({
+        where: { id: created.id },
+      });
+    },
+    MONEY_TRANSACTION_OPTIONS,
+  );
 
   return transactionFromDb(refreshed);
 }
@@ -316,75 +325,81 @@ export async function updateTransaction(
   id: string,
   transaction: Partial<TransactionInput>,
 ) {
-  const updated = await prisma.$transaction(async (tx) => {
-    const existing = await tx.transaction.findUniqueOrThrow({ where: { id } });
-    const beforeSnapshot = dbTransactionToInput(existing);
-    const nextTransaction: TransactionInput = {
-      ...beforeSnapshot,
-      ...transaction,
-    };
-    validateTransactionInput(nextTransaction);
+  const updated = await prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.transaction.findUniqueOrThrow({ where: { id } });
+      const beforeSnapshot = dbTransactionToInput(existing);
+      const nextTransaction: TransactionInput = {
+        ...beforeSnapshot,
+        ...transaction,
+      };
+      validateTransactionInput(nextTransaction);
 
-    const updatedTransaction = await tx.transaction.update({
-      where: { id },
-      data: {
-        ...(transaction.type && { type: transaction.type }),
-        ...(transaction.amount !== undefined && {
-          amount: new Prisma.Decimal(toAmount(transaction.amount)),
-        }),
-        ...(transaction.account !== undefined && {
-          account: transaction.account || null,
-        }),
-        ...(transaction.from !== undefined && {
-          from: transaction.from || null,
-        }),
-        ...(transaction.to !== undefined && { to: transaction.to || null }),
-        ...(transaction.direction !== undefined && {
-          direction: transaction.direction || null,
-        }),
-        ...(transaction.person !== undefined && {
-          person: transaction.person || null,
-        }),
-        ...(transaction.note !== undefined && { note: transaction.note || null }),
-        ...((transaction.transactionDate !== undefined ||
-          transaction.transactionTime !== undefined) && {
-          transactionDate: toDate(
-            nextTransaction.transactionDate,
-            nextTransaction.transactionTime,
-          ),
-        }),
-        ...((transaction.entryDate !== undefined ||
-          transaction.entryTime !== undefined) && {
-          entryDate: toDate(nextTransaction.entryDate, nextTransaction.entryTime),
-        }),
-      },
-    });
+      const updatedTransaction = await tx.transaction.update({
+        where: { id },
+        data: {
+          ...(transaction.type && { type: transaction.type }),
+          ...(transaction.amount !== undefined && {
+            amount: new Prisma.Decimal(toAmount(transaction.amount)),
+          }),
+          ...(transaction.account !== undefined && {
+            account: transaction.account || null,
+          }),
+          ...(transaction.from !== undefined && {
+            from: transaction.from || null,
+          }),
+          ...(transaction.to !== undefined && { to: transaction.to || null }),
+          ...(transaction.direction !== undefined && {
+            direction: transaction.direction || null,
+          }),
+          ...(transaction.person !== undefined && {
+            person: transaction.person || null,
+          }),
+          ...(transaction.note !== undefined && { note: transaction.note || null }),
+          ...((transaction.transactionDate !== undefined ||
+            transaction.transactionTime !== undefined) && {
+            transactionDate: toDate(
+              nextTransaction.transactionDate,
+              nextTransaction.transactionTime,
+            ),
+          }),
+          ...((transaction.entryDate !== undefined ||
+            transaction.entryTime !== undefined) && {
+            entryDate: toDate(nextTransaction.entryDate, nextTransaction.entryTime),
+          }),
+        },
+      });
 
-    const afterSnapshot = dbTransactionToInput(updatedTransaction);
-    await tx.transactionEditHistory.create({
-      data: {
-        transactionId: id,
-        beforeSnapshot: beforeSnapshot as Prisma.InputJsonValue,
-        afterSnapshot: afterSnapshot as Prisma.InputJsonValue,
-        changedFields: getChangedFields(
-          beforeSnapshot,
-          afterSnapshot,
-        ) as Prisma.InputJsonValue,
-      },
-    });
+      const afterSnapshot = dbTransactionToInput(updatedTransaction);
+      await tx.transactionEditHistory.create({
+        data: {
+          transactionId: id,
+          beforeSnapshot: beforeSnapshot as Prisma.InputJsonValue,
+          afterSnapshot: afterSnapshot as Prisma.InputJsonValue,
+          changedFields: getChangedFields(
+            beforeSnapshot,
+            afterSnapshot,
+          ) as Prisma.InputJsonValue,
+        },
+      });
 
-    await rebuildBalances(tx);
-    return updatedTransaction;
-  });
+      await rebuildBalances(tx);
+      return updatedTransaction;
+    },
+    MONEY_TRANSACTION_OPTIONS,
+  );
 
   return transactionFromDb(updated);
 }
 
 export async function deleteTransaction(id: string) {
-  await prisma.$transaction(async (tx) => {
-    await tx.transaction.delete({ where: { id } });
-    await rebuildBalances(tx);
-  });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.transaction.delete({ where: { id } });
+      await rebuildBalances(tx);
+    },
+    MONEY_TRANSACTION_OPTIONS,
+  );
   return id;
 }
 
