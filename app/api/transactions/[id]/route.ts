@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { deleteTransaction, updateTransaction } from "@/server/moneyRepository";
+import { requireUserId } from "@/server/authSession";
+import {
+  handleApiError,
+  validateTransactionPayload,
+} from "../../_utils";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -7,31 +12,21 @@ type RouteContext = {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
+    const userId = await requireUserId();
     const { id } = await params;
-    const updates = await request.json();
-    return NextResponse.json(await updateTransaction(id, updates));
+    const updates = validateTransactionPayload(await request.json(), "update");
+    return NextResponse.json(await updateTransaction(userId, id, updates));
   } catch (error) {
-    return NextResponse.json(
-      {
-        message:
-          error instanceof Error ? error.message : "Failed to update transaction",
-      },
-      { status: 400 },
-    );
+    return handleApiError(error, "Failed to update transaction");
   }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
+    const userId = await requireUserId();
     const { id } = await params;
-    return NextResponse.json({ id: await deleteTransaction(id) });
+    return NextResponse.json({ id: await deleteTransaction(userId, id) });
   } catch (error) {
-    return NextResponse.json(
-      {
-        message:
-          error instanceof Error ? error.message : "Failed to delete transaction",
-      },
-      { status: 400 },
-    );
+    return handleApiError(error, "Failed to delete transaction");
   }
 }

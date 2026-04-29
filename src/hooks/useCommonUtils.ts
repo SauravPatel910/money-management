@@ -1,27 +1,12 @@
-// @ts-nocheck
 import { useCallback } from "react";
+import { formatDateTime } from "../utils/formatters";
 
 export const useCommonUtils = () => {
-  const formatDate = useCallback((dateString, timeString) => {
-    const options = { year: "numeric", month: "short", day: "numeric" };
-    const formattedDate = new Date(`${dateString}T00:00:00`).toLocaleDateString(
-      undefined,
-      options,
-    );
-
-    if (!timeString) {
-      return formattedDate;
-    }
-
-    const formattedTime = new Date(
-      `${dateString}T${timeString}:00`,
-    ).toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-
-    return `${formattedDate}, ${formattedTime}`;
-  }, []);
+  const formatDate = useCallback(
+    (dateString: string, timeString?: string) =>
+      formatDateTime(dateString, timeString),
+    [],
+  );
 
   return { formatDate };
 };

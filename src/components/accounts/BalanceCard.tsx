@@ -1,14 +1,16 @@
-// @ts-nocheck
 import { memo } from "react";
-import { useSelector } from "react-redux";
+import type { ReactNode } from "react";
+import { useAppSelector } from "../../config/reduxStore";
 import {
   selectAccounts,
   selectTotalBalance,
   selectSummary,
 } from "../../store/transactionsSlice";
+import type { Account } from "../../types/money";
+import { formatCurrency } from "../../utils/formatters";
 
 // Extract account icon component to optimize rendering
-const AccountIcon = memo(({ type }) => {
+const AccountIcon = memo(({ type }: { type: string }) => {
   switch (type) {
     case "cash":
       return (
@@ -128,23 +130,23 @@ const AccountIcon = memo(({ type }) => {
   }
 });
 
-// Optimized currency formatter to avoid recreating in each component
-const formatCurrency = (amount) => {
-  return amount.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-  });
+// Summary card component for income, expense, and cash
+type SummaryCardProps = {
+  type: "income" | "expense" | "cash";
+  title: string;
+  amount: number;
+  icon: ReactNode;
 };
 
-// Summary card component for income, expense, and cash
-const SummaryCard = memo(({ type, title, amount, icon }) => {
+const SummaryCard = memo(({ type, title, amount, icon }: SummaryCardProps) => {
   return (
     <div
       className={`col-span-1 flex rounded-2xl ${
         type === "income"
-          ? "bg-gradient-to-br from-income to-income-dark"
+          ? "bg-linear-to-br from-income to-income-dark"
           : type === "expense"
-            ? "bg-gradient-to-br from-expense to-expense-dark"
-            : "bg-gradient-to-br from-primary-400 to-primary-500"
+            ? "bg-linear-to-br from-expense to-expense-dark"
+            : "bg-linear-to-br from-primary-400 to-primary-500"
       } p-6 text-white shadow-card transition-all duration-300 hover:shadow-lg ${type === "cash" ? "hidden md:flex" : ""}`}
     >
       <div className="mr-6 flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
@@ -163,10 +165,7 @@ const SummaryCard = memo(({ type, title, amount, icon }) => {
           {title}
         </div>
         <div className="flex items-baseline">
-          <span className="text-2xl font-bold">₹</span>
-          <span className="ml-1 text-3xl font-bold">
-            {formatCurrency(amount)}
-          </span>
+          <span className="text-3xl font-bold">{formatCurrency(amount)}</span>
         </div>
       </div>
     </div>
@@ -174,7 +173,7 @@ const SummaryCard = memo(({ type, title, amount, icon }) => {
 });
 
 // Account card component
-const AccountCard = memo(({ account }) => {
+const AccountCard = memo(({ account }: { account: Account }) => {
   return (
     <div
       key={account.id}
@@ -195,8 +194,7 @@ const AccountCard = memo(({ account }) => {
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-baseline">
-          <span className="text-xl font-bold text-primary-700">₹</span>
-          <span className="ml-1 text-2xl font-bold text-primary-700">
+          <span className="text-2xl font-bold text-primary-700">
             {formatCurrency(account.balance)}
           </span>
         </div>
@@ -206,9 +204,9 @@ const AccountCard = memo(({ account }) => {
 });
 
 const BalanceCard = () => {
-  const accounts = useSelector(selectAccounts);
-  const totalBalance = useSelector(selectTotalBalance);
-  const summary = useSelector(selectSummary);
+  const accounts = useAppSelector(selectAccounts);
+  const totalBalance = useAppSelector(selectTotalBalance);
+  const summary = useAppSelector(selectSummary);
 
   // Income and expense icons
   const incomeIcon = (
@@ -249,11 +247,10 @@ const BalanceCard = () => {
 
   return (
     <div className="mb-8 space-y-6">
-      <div className="rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 p-6 text-white shadow-card transition-all duration-300 hover:shadow-lg">
+      <div className="rounded-2xl bg-linear-to-br from-primary-500 to-primary-600 p-6 text-white shadow-card transition-all duration-300 hover:shadow-lg">
         <div className="mb-2 text-primary-200">Total Balance</div>
         <div className="flex items-baseline">
-          <span className="text-4xl font-bold">₹</span>
-          <span className="ml-1 text-5xl font-bold">
+          <span className="text-5xl font-bold">
             {formatCurrency(totalBalance)}
           </span>
         </div>

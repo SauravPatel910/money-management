@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { memo, useState, useCallback } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import type { ChangeEvent, SubmitEventHandler } from "react";
+import { useAppDispatch, useAppSelector } from "../../config/reduxStore";
 import {
   selectAccounts,
   addAccountThunk,
@@ -8,9 +8,16 @@ import {
   deleteAccountThunk,
 } from "../../store/transactionsSlice";
 import Input from "../forms/Input";
+import type { Account, AccountFormState } from "../../types/money";
+import { formatCurrency } from "../../utils/formatters";
+
+type AccountInputChangeHandler = (
+  e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  id?: string | null,
+) => void;
 
 // Account icon components
-const AccountIcon = memo(({ type }) => {
+const AccountIcon = memo(({ type }: { type: string }) => {
   switch (type) {
     case "cash":
       return (
@@ -136,7 +143,17 @@ const AccountTypeOptions = memo(() => (
 
 // Add Account Form Component
 const AddAccountForm = memo(
-  ({ newAccount, handleInputChange, handleAddAccount, onCancel }) => (
+  ({
+    newAccount,
+    handleInputChange,
+    handleAddAccount,
+    onCancel,
+  }: {
+    newAccount: AccountFormState;
+    handleInputChange: AccountInputChangeHandler;
+    handleAddAccount: SubmitEventHandler<HTMLFormElement>;
+    onCancel: () => void;
+  }) => (
     <div className="mb-6 rounded-lg border border-primary-100 bg-primary-50/50 p-4">
       <h4 className="mb-3 text-lg font-medium text-primary-700">
         Add New Account
@@ -187,7 +204,7 @@ const AddAccountForm = memo(
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-primary-600 hover:to-primary-700"
+            className="rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-primary-600 hover:to-primary-700"
           >
             Add Account
           </button>
@@ -199,7 +216,20 @@ const AddAccountForm = memo(
 
 // Edit Account Form Component
 const EditAccountForm = memo(
-  ({ account, handleInputChange, handleEditAccount, onCancel }) => {
+  ({
+    account,
+    handleInputChange,
+    handleEditAccount,
+    onCancel,
+  }: {
+    account: Account;
+    handleInputChange: AccountInputChangeHandler;
+    handleEditAccount: (
+      e: Parameters<SubmitEventHandler<HTMLFormElement>>[0],
+      id: string,
+    ) => void;
+    onCancel: () => void;
+  }) => {
     // Get the account from the parent component's state
     return (
       <form onSubmit={(e) => handleEditAccount(e, account.id)}>
@@ -250,7 +280,7 @@ const EditAccountForm = memo(
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:from-primary-600 hover:to-primary-700"
+            className="rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:from-primary-600 hover:to-primary-700"
           >
             Save
           </button>
@@ -261,43 +291,36 @@ const EditAccountForm = memo(
 );
 
 // Account Card Component
-const AccountCard = memo(({ account, onEdit, onDelete }) => (
-  <div className="flex items-center justify-between">
-    <div className="flex items-center">
-      <div className="mr-3 rounded-full bg-primary-100 p-2">
-        <AccountIcon type={account.icon} />
-      </div>
-      <div>
-        <h4 className="font-medium text-primary-800">{account.name}</h4>
+const AccountCard = memo(
+  ({
+    account,
+    onEdit,
+    onDelete,
+  }: {
+    account: Account;
+    onEdit: () => void;
+    onDelete: () => void;
+  }) => (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <div className="mr-3 rounded-full bg-primary-100 p-2">
+          <AccountIcon type={account.icon} />
+        </div>
+        <div>
+          <h4 className="font-medium text-primary-800">{account.name}</h4>
+          <p className="text-sm font-semibold text-primary-600">
+            Owner: {account.owner || "N/A"}
+          </p>
         <p className="text-sm font-semibold text-primary-600">
-          Owner: {account.owner || "N/A"}
+          {formatCurrency(account.balance)}
         </p>
-        <p className="text-sm font-semibold text-primary-600">
-          ₹
-          {account.balance.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-          })}
-        </p>
+        </div>
       </div>
-    </div>
-    <div className="hidden space-x-2 group-hover:flex">
-      <button
-        className="rounded-lg bg-primary-100 p-1.5 text-primary-700 transition-colors hover:bg-primary-200"
-        onClick={onEdit}
-      >
-        <svg
-          className="h-4 w-4"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-        </svg>
-      </button>
-      {account.id !== "cash" && (
+      <div className="hidden space-x-2 group-hover:flex">
         <button
-          className="rounded-lg bg-expense-light p-1.5 text-expense-dark transition-colors hover:bg-expense/20"
-          onClick={onDelete}
+          className="rounded-lg bg-primary-100 p-1.5 text-primary-700 transition-colors hover:bg-primary-200"
+          onClick={onEdit}
+          aria-label={`Edit ${account.name}`}
         >
           <svg
             className="h-4 w-4"
@@ -305,34 +328,59 @@ const AccountCard = memo(({ account, onEdit, onDelete }) => (
             viewBox="0 0 20 20"
             fill="currentColor"
           >
-            <path
-              fillRule="evenodd"
-              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-              clipRule="evenodd"
-            />
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
           </svg>
         </button>
-      )}
+        {account.id !== "cash" && (
+          <button
+            className="rounded-lg bg-expense-light p-1.5 text-expense-dark transition-colors hover:bg-expense/20"
+            onClick={onDelete}
+            aria-label={`Delete ${account.name}`}
+          >
+            <svg
+              className="h-4 w-4"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
-  </div>
-));
+  ),
+);
 
 const AccountManager = () => {
-  const accounts = useSelector(selectAccounts);
-  const dispatch = useDispatch();
+  const accounts = useAppSelector(selectAccounts);
+  const dispatch = useAppDispatch();
   const [isAddingAccount, setIsAddingAccount] = useState(false);
-  const [editingAccountId, setEditingAccountId] = useState(null);
-  const [newAccount, setNewAccount] = useState({ name: "", icon: "bank" });
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [newAccount, setNewAccount] = useState<AccountFormState>({
+    name: "",
+    icon: "bank",
+  });
   // Add state to track edited accounts locally
-  const [editingAccounts, setEditingAccounts] = useState({});
+  const [editingAccounts, setEditingAccounts] = useState<
+    Record<string, Account>
+  >({});
+  const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<
+    string | null
+  >(null);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
 
   // Memoized callbacks
   const handleAddAccount = useCallback(
-    (e) => {
+    (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0]) => {
       e.preventDefault();
 
       if (!newAccount.name.trim()) {
-        alert("Please enter an account name");
+        setAccountMessage("Please enter an account name.");
         return;
       }
 
@@ -346,19 +394,24 @@ const AccountManager = () => {
 
       setNewAccount({ name: "", icon: "bank" });
       setIsAddingAccount(false);
+      setAccountMessage("Account added successfully.");
     },
     [dispatch, newAccount],
   );
 
   const handleEditAccount = useCallback(
-    (e, id) => {
+    (e: Parameters<SubmitEventHandler<HTMLFormElement>>[0], id: string) => {
       e.preventDefault();
       // Get the locally edited account values
       const accountToEdit =
         editingAccounts[id] || accounts.find((acc) => acc.id === id);
 
+      if (!accountToEdit) {
+        return;
+      }
+
       if (!accountToEdit.name.trim()) {
-        alert("Please enter an account name");
+        setAccountMessage("Please enter an account name.");
         return;
       }
 
@@ -378,48 +431,62 @@ const AccountManager = () => {
         delete updated[id];
         return updated;
       });
+      setAccountMessage("Account updated successfully.");
     },
     [accounts, dispatch, editingAccounts],
   );
 
   const handleDeleteAccount = useCallback(
-    (id) => {
-      const account = accounts.find((acc) => acc.id === id);
-
+    (id: string) => {
       if (id === "cash") {
-        alert("The Cash account cannot be deleted.");
+        setAccountMessage("The Cash account cannot be deleted.");
         return;
       }
 
-      if (
-        confirm(
-          `Are you sure you want to delete the account "${account.name}"?`,
-        )
-      ) {
-        dispatch(deleteAccountThunk(id))
-          .unwrap()
-          .then(() => {
-            // Success case handled automatically
-          })
-          .catch((error) => {
-            // This will be called if the account has transactions
-            alert(
-              error.message || "Cannot delete account that has transactions",
-            );
-          });
-      }
+      setPendingDeleteAccountId(id);
+      setAccountMessage(null);
     },
-    [accounts, dispatch],
+    [],
   );
 
+  const handleCancelDeleteAccount = useCallback(() => {
+    setPendingDeleteAccountId(null);
+  }, []);
+
+  const handleConfirmDeleteAccount = useCallback(() => {
+    if (!pendingDeleteAccountId) {
+      return;
+    }
+
+    dispatch(deleteAccountThunk(pendingDeleteAccountId))
+      .unwrap()
+      .then(() => {
+        setAccountMessage("Account deleted successfully.");
+      })
+      .catch((error: Error) => {
+        setAccountMessage(
+          error.message || "Cannot delete account that has transactions",
+        );
+      })
+      .finally(() => {
+        setPendingDeleteAccountId(null);
+      });
+  }, [dispatch, pendingDeleteAccountId]);
+
   const handleInputChange = useCallback(
-    (e, id = null) => {
+    (
+      e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+      id: string | null = null,
+    ) => {
       const { name, value } = e.target;
 
       if (id) {
         // Editing existing account - update temporarily in local component state
         setEditingAccounts((prev) => {
           const account = prev[id] || accounts.find((acc) => acc.id === id);
+          if (!account) {
+            return prev;
+          }
           return {
             ...prev,
             [id]: {
@@ -439,10 +506,12 @@ const AccountManager = () => {
   const handleCancelAdd = useCallback(() => {
     setIsAddingAccount(false);
     setNewAccount({ name: "", icon: "bank" });
+    setAccountMessage(null);
   }, []);
 
   const handleCancelEdit = useCallback(() => {
     setEditingAccountId(null);
+    setAccountMessage(null);
   }, []);
 
   return (
@@ -453,7 +522,7 @@ const AccountManager = () => {
         </h3>
         {!isAddingAccount && (
           <button
-            className="flex transform items-center rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-1.5 text-sm font-medium text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            className="flex transform items-center rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-3 py-1.5 text-sm font-medium text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
             onClick={() => setIsAddingAccount(true)}
           >
             <svg
@@ -472,6 +541,12 @@ const AccountManager = () => {
           </button>
         )}
       </div>
+
+      {accountMessage && (
+        <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+          {accountMessage}
+        </div>
+      )}
 
       {/* Add Account Form */}
       {isAddingAccount && (
@@ -510,6 +585,27 @@ const AccountManager = () => {
                 }}
                 onDelete={() => handleDeleteAccount(account.id)}
               />
+            )}
+            {pendingDeleteAccountId === account.id && (
+              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
+                <span>Delete account "{account.name}"?</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
+                    onClick={handleConfirmDeleteAccount}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+                    onClick={handleCancelDeleteAccount}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         ))}

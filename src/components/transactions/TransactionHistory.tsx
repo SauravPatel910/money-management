@@ -1,7 +1,37 @@
-// @ts-nocheck
-import { memo } from "react";
-import { useSelector } from "react-redux";
-import { selectAccounts } from "../../store/transactionsSlice";
+import { Fragment, memo, useMemo, useState } from "react";
+import { useAppSelector } from "../../config/reduxStore";
+import {
+  selectAccounts,
+  selectCategories,
+} from "../../store/transactionsSlice";
+import type {
+  Account,
+  MoneyTransaction,
+  TransactionEditChangedField,
+  TransactionEditHistory as TransactionEditHistoryRecord,
+} from "../../types/money";
+import { formatCurrency } from "../../utils/formatters";
+
+type SortOrder = "newest" | "oldest";
+type FormatDate = (dateString: string, timeString?: string) => string;
+type GetAccountName = (accountId: string) => string;
+type GetCategoryName = (categoryId: string) => string;
+type AccountSummary = Pick<Account, "id" | "name">;
+
+type TransactionHistoryProps = {
+  transactions: MoneyTransaction[];
+  sortOrder: SortOrder;
+  toggleSortOrder: () => void;
+  formatDate: FormatDate;
+  editTransaction?: (transaction: MoneyTransaction) => void;
+  deleteTransaction: (id: string) => void;
+  toggleTransactionHistory: (id: string) => void;
+  expandedHistoryTransactionId: string | null;
+  selectedEditHistory: TransactionEditHistoryRecord[];
+  selectedEditHistoryStatus: "idle" | "loading" | "succeeded" | "failed";
+  selectedEditHistoryError: string | null;
+  sortedTransactions: MoneyTransaction[];
+};
 
 const TransactionHistory = ({
   transactions,
@@ -10,18 +40,53 @@ const TransactionHistory = ({
   formatDate,
   editTransaction,
   deleteTransaction,
-  sortTransactions,
-}) => {
-  const accounts = useSelector(selectAccounts);
+  toggleTransactionHistory,
+  expandedHistoryTransactionId,
+  selectedEditHistory,
+  selectedEditHistoryStatus,
+  selectedEditHistoryError,
+  sortedTransactions,
+}: TransactionHistoryProps) => {
+  const accounts = useAppSelector(selectAccounts);
+  const categories = useAppSelector(selectCategories);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  // Get account name from ID
-  const getAccountName = (accountId) => {
-    const account = accounts.find((acc) => acc.id === accountId);
-    return account ? account.name : accountId;
-  };
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account.name])),
+    [accounts],
+  );
+  const categoryNameById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories],
+  );
+  const accountSummaries = useMemo<AccountSummary[]>(
+    () => accounts.map(({ id, name }) => ({ id, name })),
+    [accounts],
+  );
+  const getAccountName = useMemo<GetAccountName>(
+    () => (accountId) => accountNameById.get(accountId) || accountId,
+    [accountNameById],
+  );
+  const getCategoryName = useMemo<GetCategoryName>(
+    () => (categoryId) => categoryNameById.get(categoryId) || categoryId,
+    [categoryNameById],
+  );
+  const filteredTransactions = useMemo(
+    () =>
+      sortedTransactions.filter((transaction) => {
+        if (dateFrom && transaction.transactionDate < dateFrom) {
+          return false;
+        }
 
-  // Get sorted transactions
-  const sortedTransactions = sortTransactions(transactions);
+        if (dateTo && transaction.transactionDate > dateTo) {
+          return false;
+        }
+
+        return true;
+      }),
+    [dateFrom, dateTo, sortedTransactions],
+  );
 
   return (
     <div className="rounded-2xl border-t-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
@@ -30,7 +95,7 @@ const TransactionHistory = ({
           Transaction History
         </h3>
         <button
-          className="flex transform items-center rounded-lg bg-gradient-to-r from-primary-400 to-primary-500 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors hover:-translate-y-0.5 hover:from-primary-500 hover:to-primary-600 hover:shadow-lg"
+          className="flex transform items-center rounded-lg bg-linear-to-r from-primary-400 to-primary-500 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors hover:-translate-y-0.5 hover:from-primary-500 hover:to-primary-600 hover:shadow-lg"
           onClick={toggleSortOrder}
         >
           <svg
@@ -44,6 +109,39 @@ const TransactionHistory = ({
           {sortOrder === "newest" ? "Newest First" : "Oldest First"}
         </button>
       </div>
+
+      {transactions.length > 0 && (
+        <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <label className="text-sm font-medium text-primary-700">
+            From
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            />
+          </label>
+          <label className="text-sm font-medium text-primary-700">
+            To
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            className="rounded-lg border border-primary-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:bg-primary-50"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
@@ -68,11 +166,27 @@ const TransactionHistory = ({
             Add some to get started!
           </p>
         </div>
+      ) : filteredTransactions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-primary-100 bg-white/70 py-12">
+          <p className="mb-2 text-center text-gray-500">
+            No transactions match the selected dates.
+          </p>
+          <button
+            type="button"
+            className="text-sm font-medium text-primary-600"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-primary-100 shadow-md">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gradient-to-r from-primary-300/70 to-primary-100/70">
+              <tr className="bg-linear-to-r from-primary-300/70 to-primary-100/70">
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Transaction Date
                 </th>
@@ -84,6 +198,9 @@ const TransactionHistory = ({
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Details
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                  Category
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Amount
@@ -100,16 +217,32 @@ const TransactionHistory = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-100">
-              {sortedTransactions.map((transaction) => (
-                <TransactionRow
-                  key={transaction.id}
-                  transaction={transaction}
-                  formatDate={formatDate}
-                  editTransaction={editTransaction}
-                  deleteTransaction={deleteTransaction}
-                  getAccountName={getAccountName}
-                  accounts={accounts}
-                />
+              {filteredTransactions.map((transaction) => (
+                <Fragment key={transaction.id}>
+                  <TransactionRow
+                    transaction={transaction}
+                    formatDate={formatDate}
+                    editTransaction={editTransaction}
+                    deleteTransaction={deleteTransaction}
+                    toggleTransactionHistory={toggleTransactionHistory}
+                    isHistoryOpen={
+                      expandedHistoryTransactionId === transaction.id
+                    }
+                    getAccountName={getAccountName}
+                    getCategoryName={getCategoryName}
+                    accounts={accountSummaries}
+                  />
+                  {expandedHistoryTransactionId === transaction.id && (
+                    <TransactionEditHistoryRow
+                      history={selectedEditHistory}
+                      status={selectedEditHistoryStatus}
+                      error={selectedEditHistoryError}
+                      formatDate={formatDate}
+                      getAccountName={getAccountName}
+                      getCategoryName={getCategoryName}
+                    />
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -120,39 +253,42 @@ const TransactionHistory = ({
 };
 
 // Function to get the background color based on transaction type
-const getRowBackgroundColor = (transaction) => {
+const getRowBackgroundColor = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-gradient-to-r from-income-light/20 to-transparent";
+    return "bg-linear-to-r from-income-light/20 to-transparent";
   } else if (transaction.type === "expense") {
-    return "bg-gradient-to-r from-expense-light/20 to-transparent";
+    return "bg-linear-to-r from-expense-light/20 to-transparent";
   } else if (transaction.type === "transfer") {
-    return "bg-gradient-to-r from-primary-100/30 to-transparent";
+    return "bg-linear-to-r from-primary-100/30 to-transparent";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-gradient-to-r from-expense-light/20 to-transparent"
-      : "bg-gradient-to-r from-income-light/20 to-transparent";
+      ? "bg-linear-to-r from-expense-light/20 to-transparent"
+      : "bg-linear-to-r from-income-light/20 to-transparent";
   }
   return "";
 };
 
 // Function to get the type badge styles
-const getTypeBadgeStyles = (transaction) => {
+const getTypeBadgeStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-gradient-to-r from-income to-income-dark text-white";
+    return "bg-linear-to-r from-income to-income-dark text-white";
   } else if (transaction.type === "expense") {
-    return "bg-gradient-to-r from-expense to-expense-dark text-white";
+    return "bg-linear-to-r from-expense to-expense-dark text-white";
   } else if (transaction.type === "transfer") {
-    return "bg-gradient-to-r from-primary-500 to-primary-600 text-white";
+    return "bg-linear-to-r from-primary-500 to-primary-600 text-white";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-gradient-to-r from-expense to-expense-dark text-white"
-      : "bg-gradient-to-r from-income to-income-dark text-white";
+      ? "bg-linear-to-r from-expense to-expense-dark text-white"
+      : "bg-linear-to-r from-income to-income-dark text-white";
   }
   return "";
 };
 
 // Function to get transaction details
-const getTransactionDetails = (transaction, getAccountName) => {
+const getTransactionDetails = (
+  transaction: MoneyTransaction,
+  getAccountName: GetAccountName,
+) => {
   if (transaction.type === "income" || transaction.type === "expense") {
     return getAccountName(transaction.account || "cash");
   } else if (transaction.type === "transfer") {
@@ -166,7 +302,7 @@ const getTransactionDetails = (transaction, getAccountName) => {
 };
 
 // Function to get amount display styles
-const getAmountStyles = (transaction) => {
+const getAmountStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "text-income-dark";
   } else if (transaction.type === "expense") {
@@ -182,7 +318,7 @@ const getAmountStyles = (transaction) => {
 };
 
 // Function to get amount prefix (+ or -)
-const getAmountPrefix = (transaction) => {
+const getAmountPrefix = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
     return "+";
   } else if (transaction.type === "expense") {
@@ -195,6 +331,188 @@ const getAmountPrefix = (transaction) => {
   return "";
 };
 
+const getChangedAccountIds = (transaction: MoneyTransaction) => {
+  const changedAccounts: string[] = [];
+
+  if (transaction.account) {
+    changedAccounts.push(transaction.account);
+  }
+
+  if (transaction.type === "transfer") {
+    if (transaction.from && !changedAccounts.includes(transaction.from)) {
+      changedAccounts.push(transaction.from);
+    }
+    if (transaction.to && !changedAccounts.includes(transaction.to)) {
+      changedAccounts.push(transaction.to);
+    }
+  }
+
+  return changedAccounts;
+};
+
+const getTotalBalanceAtTransaction = (transaction: MoneyTransaction) =>
+  transaction.totalBalance ||
+  Object.values(transaction.accountBalances || {}).reduce(
+    (sum, balance) => sum + balance,
+    0,
+  );
+
+const HISTORY_FIELD_LABELS: Record<string, string> = {
+  type: "Type",
+  amount: "Amount",
+  account: "Account",
+  from: "From",
+  to: "To",
+  direction: "Direction",
+  person: "Person",
+  note: "Note",
+  categoryId: "Category",
+  subcategoryId: "Subcategory",
+  transactionDate: "Transaction date",
+  transactionTime: "Transaction time",
+  entryDate: "Entry date",
+  entryTime: "Entry time",
+};
+
+const formatHistoryValue = (
+  field: string,
+  value: TransactionEditChangedField["before"],
+  formatDate: FormatDate,
+  getAccountName: GetAccountName,
+  getCategoryName: GetCategoryName,
+) => {
+  if (value === null || value === "") {
+    return "-";
+  }
+
+  if (field === "amount") {
+    return formatCurrency(Number(value));
+  }
+
+  if (field === "account" || field === "from" || field === "to") {
+    return getAccountName(String(value));
+  }
+
+  if (field === "categoryId" || field === "subcategoryId") {
+    return getCategoryName(String(value));
+  }
+
+  if (field === "transactionDate") {
+    return formatDate(String(value));
+  }
+
+  if (field === "entryDate") {
+    return formatDate(String(value));
+  }
+
+  return String(value);
+};
+
+const formatEditedAt = (editedAt: string) =>
+  new Date(editedAt).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+const TransactionEditHistoryRow = ({
+  history,
+  status,
+  error,
+  formatDate,
+  getAccountName,
+  getCategoryName,
+}: {
+  history: TransactionEditHistoryRecord[];
+  status: "idle" | "loading" | "succeeded" | "failed";
+  error: string | null;
+  formatDate: FormatDate;
+  getAccountName: GetAccountName;
+  getCategoryName: GetCategoryName;
+}) => (
+  <tr className="bg-primary-50/50">
+    <td colSpan={9} className="px-4 py-4">
+      <div className="rounded-xl border border-primary-100 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-primary-700">
+            Edit history
+          </h4>
+          <span className="text-xs font-medium text-gray-500">
+            {history.length} {history.length === 1 ? "edit" : "edits"}
+          </span>
+        </div>
+
+        {status === "loading" ? (
+          <p className="text-sm text-gray-500">Loading history...</p>
+        ) : status === "failed" ? (
+          <p className="text-sm text-expense-dark">
+            {error || "Failed to load edit history."}
+          </p>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-gray-500">No edits yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {history.map((historyItem) => (
+              <div
+                key={historyItem.id}
+                className="rounded-lg border border-primary-100 bg-primary-50/30 p-3"
+              >
+                <div className="mb-2 text-xs font-semibold text-primary-700">
+                  Edited at {formatEditedAt(historyItem.editedAt)}
+                </div>
+                {historyItem.changedFields.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Only automatic metadata changed.
+                  </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {historyItem.changedFields.map((change) => (
+                      <div
+                        key={`${historyItem.id}-${change.field}`}
+                        className="grid gap-1 rounded-md bg-white px-3 py-2 text-xs sm:grid-cols-[140px_1fr_1fr] sm:items-center"
+                      >
+                        <span className="font-semibold text-gray-700">
+                          {HISTORY_FIELD_LABELS[change.field] || change.field}
+                        </span>
+                        <span className="text-gray-500">
+                          Before:{" "}
+                          <span className="font-medium text-gray-700">
+                            {formatHistoryValue(
+                              change.field,
+                              change.before,
+                              formatDate,
+                              getAccountName,
+                              getCategoryName,
+                            )}
+                          </span>
+                        </span>
+                        <span className="text-gray-500">
+                          After:{" "}
+                          <span className="font-medium text-primary-700">
+                            {formatHistoryValue(
+                              change.field,
+                              change.after,
+                              formatDate,
+                              getAccountName,
+                              getCategoryName,
+                            )}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </td>
+  </tr>
+);
+
 // Memoized individual transaction row component
 const TransactionRow = memo(
   ({
@@ -202,17 +520,24 @@ const TransactionRow = memo(
     formatDate,
     editTransaction,
     deleteTransaction,
+    toggleTransactionHistory,
+    isHistoryOpen,
     getAccountName,
+    getCategoryName,
     accounts,
+  }: {
+    transaction: MoneyTransaction;
+    formatDate: FormatDate;
+    editTransaction?: (transaction: MoneyTransaction) => void;
+    deleteTransaction: (id: string) => void;
+    toggleTransactionHistory: (id: string) => void;
+    isHistoryOpen: boolean;
+    getAccountName: GetAccountName;
+    getCategoryName: GetCategoryName;
+    accounts: AccountSummary[];
   }) => {
-    // Get account balances at the time of this transaction
-
-    const totalBalanceAtTransaction =
-      transaction.totalBalance ||
-      Object.values(transaction.accountBalances || {}).reduce(
-        (sum, balance) => sum + balance,
-        0,
-      );
+    const changedAccountIds = getChangedAccountIds(transaction);
+    const totalBalanceAtTransaction = getTotalBalanceAtTransaction(transaction);
 
     return (
       <tr
@@ -242,15 +567,25 @@ const TransactionRow = memo(
         <td className="px-4 py-3 text-sm whitespace-nowrap capitalize">
           {getTransactionDetails(transaction, getAccountName)}
         </td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap">
+          <div className="font-medium text-primary-700">
+            {transaction.categoryId
+              ? getCategoryName(transaction.categoryId)
+              : transaction.category?.name || "-"}
+          </div>
+          {transaction.subcategoryId && (
+            <div className="text-xs text-gray-500">
+              {getCategoryName(transaction.subcategoryId)}
+            </div>
+          )}
+        </td>
         <td
           className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${getAmountStyles(
             transaction,
           )}`}
         >
-          {getAmountPrefix(transaction)}₹
-          {transaction.amount.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-          })}
+          {getAmountPrefix(transaction)}
+          {formatCurrency(transaction.amount)}
         </td>
         <td className="max-w-xs truncate px-4 py-3 text-sm">
           {transaction.note || "-"}
@@ -261,50 +596,21 @@ const TransactionRow = memo(
             {/* Default view - only show changed accounts + total */}
             <div className="flex flex-col space-y-1">
               {/* Only show accounts that were affected by this transaction */}
-              {(() => {
-                // Get accounts that were changed in this transaction
-                const changedAccounts = [];
-
-                // Add primary account if it exists
-                if (transaction.account) {
-                  changedAccounts.push(transaction.account);
-                }
-
-                // Add from/to accounts for transfers if they're different
-                if (transaction.type === "transfer") {
-                  if (
-                    transaction.from &&
-                    !changedAccounts.includes(transaction.from)
-                  ) {
-                    changedAccounts.push(transaction.from);
-                  }
-                  if (
-                    transaction.to &&
-                    !changedAccounts.includes(transaction.to)
-                  ) {
-                    changedAccounts.push(transaction.to);
-                  }
-                }
-
-                return changedAccounts.map((accountId) => (
-                  <div
-                    key={accountId}
-                    className="flex items-center justify-between whitespace-nowrap"
-                  >
-                    <span className="max-w-[80px] truncate text-xs font-medium text-gray-600">
-                      {getAccountName(accountId)}:
-                    </span>
-                    <span className="ml-1 text-xs font-medium text-primary-700">
-                      ₹
-                      {(
-                        transaction.accountBalances?.[accountId] || 0
-                      ).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                ));
-              })()}
+              {changedAccountIds.map((accountId) => (
+                <div
+                  key={accountId}
+                  className="flex items-center justify-between whitespace-nowrap"
+                >
+                  <span className="max-w-20 truncate text-xs font-medium text-gray-600">
+                    {getAccountName(accountId)}:
+                  </span>
+                  <span className="ml-1 text-xs font-medium text-primary-700">
+                    {formatCurrency(
+                      transaction.accountBalances?.[accountId] || 0,
+                    )}
+                  </span>
+                </div>
+              ))}
 
               {/* Total balance - always visible */}
               <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-1 whitespace-nowrap">
@@ -312,16 +618,13 @@ const TransactionRow = memo(
                   Total:
                 </span>
                 <span className="text-xs font-bold text-primary-700">
-                  ₹
-                  {totalBalanceAtTransaction.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCurrency(totalBalanceAtTransaction)}
                 </span>
               </div>
             </div>
 
             {/* Hover tooltip with all account balances */}
-            <div className="invisible absolute top-0 right-0 z-50 min-w-[200px] origin-top-right transform rounded-md border border-primary-100 bg-white p-3 opacity-0 shadow-lg transition-all duration-200 group-hover:visible group-hover:opacity-100">
+            <div className="invisible absolute top-0 right-0 z-50 min-w-50 origin-top-right transform rounded-md border border-primary-100 bg-white p-3 opacity-0 shadow-lg transition-all duration-200 group-hover:visible group-hover:opacity-100">
               <div className="mb-2 flex items-center justify-between border-b border-primary-100 pb-1">
                 <span className="text-xs font-bold text-primary-600">
                   Account
@@ -331,7 +634,7 @@ const TransactionRow = memo(
                 </span>
               </div>
 
-              <div className="max-h-[180px] space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-45 space-y-2 overflow-y-auto pr-1">
                 {accounts.map((account) => (
                   <div
                     key={account.id}
@@ -350,12 +653,9 @@ const TransactionRow = memo(
                           : "text-gray-600"
                       }`}
                     >
-                      ₹
-                      {(
-                        transaction.accountBalances?.[account.id] || 0
-                      ).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {formatCurrency(
+                        transaction.accountBalances?.[account.id] || 0,
+                      )}
                     </span>
                   </div>
                 ))}
@@ -366,19 +666,22 @@ const TransactionRow = memo(
                   Total:
                 </span>
                 <span className="text-xs font-bold text-primary-700">
-                  ₹
-                  {totalBalanceAtTransaction.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCurrency(totalBalanceAtTransaction)}
                 </span>
               </div>
             </div>
           </div>
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap">
+          <button
+            className="mr-2 transform rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-50 hover:shadow-md"
+            onClick={() => toggleTransactionHistory(transaction.id)}
+          >
+            {isHistoryOpen ? "Hide" : "History"}
+          </button>
           {editTransaction && (
             <button
-              className="mr-2 transform rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+              className="mr-2 transform rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
               onClick={() => editTransaction(transaction)}
             >
               <svg
@@ -398,7 +701,7 @@ const TransactionRow = memo(
             </button>
           )}
           <button
-            className="transform rounded-lg bg-gradient-to-r from-expense to-expense-dark px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+            className="transform rounded-lg bg-linear-to-r from-expense to-expense-dark px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
             onClick={() => deleteTransaction(transaction.id)}
           >
             <svg

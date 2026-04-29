@@ -1,12 +1,16 @@
-// @ts-nocheck
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "../../config/reduxStore";
 import {
   fetchAccountsThunk,
   fetchTransactionsThunk,
 } from "../../store/transactionsSlice";
 
-function Failed({ error, text = "Faild to load data." }) {
-  const dispatch = useDispatch();
+type FailedProps = {
+  error?: string | null;
+  text?: string;
+};
+
+function Failed({ error, text = "Faild to load data." }: FailedProps) {
+  const dispatch = useAppDispatch();
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-6 rounded-lg bg-expense-light/50 p-4 text-expense-dark">

@@ -1,16 +1,73 @@
-// @ts-nocheck
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import type { RootState } from "../config/reduxStore";
+import type {
+  Account,
+  AccountInput,
+  MoneyTransaction,
+  Summary,
+  TransactionCategory,
+  TransactionCategoryInput,
+  TransactionEditHistory,
+  TransactionInput,
+} from "../types/money";
 import {
   fetchTransactions,
   fetchAccounts,
   addTransaction,
+  fetchCategories,
+  fetchTransactionEditHistory,
   updateTransaction,
   deleteTransaction,
   addAccount,
   updateAccount,
   deleteAccount,
-  calculateSummary,
+  addCategory,
+  updateCategory,
+  deleteCategory,
 } from "../services/moneyService";
+import {
+  calculateSummary,
+  getTransactionTimestamp,
+} from "../lib/moneyCalculations";
+
+type SortOrder = "newest" | "oldest";
+type RequestStatus = "idle" | "loading" | "succeeded" | "failed";
+
+type TransactionsState = {
+  transactions: MoneyTransaction[];
+  accounts: Account[];
+  categories: TransactionCategory[];
+  sortOrder: SortOrder;
+  summary: Summary;
+  transactionsStatus: RequestStatus;
+  transactionsError: string | null;
+  accountsStatus: RequestStatus;
+  accountsError: string | null;
+  categoriesStatus: RequestStatus;
+  categoriesError: string | null;
+  editHistoryByTransactionId: Record<string, TransactionEditHistory[]>;
+  editHistoryStatusByTransactionId: Record<string, RequestStatus>;
+  editHistoryErrorByTransactionId: Record<string, string | null>;
+};
+
+type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
+type UpdateCategoryPayload = { id: string } & Partial<TransactionCategoryInput>;
+type FreshDataPayload = {
+  processedTransactions: MoneyTransaction[];
+  updatedAccounts: Account[];
+  updatedCategories: TransactionCategory[];
+};
+
+const fetchFreshMoneyData = async (): Promise<FreshDataPayload> => {
+  const [processedTransactions, updatedAccounts, updatedCategories] =
+    await Promise.all([
+    fetchTransactions(),
+    fetchAccounts(),
+    fetchCategories(),
+  ]);
+
+  return { processedTransactions, updatedAccounts, updatedCategories };
+};
 
 // Create async thunks for server-backed operations
 export const fetchTransactionsThunk = createAsyncThunk(
@@ -29,58 +86,63 @@ export const fetchAccountsThunk = createAsyncThunk(
 
 export const addTransactionThunk = createAsyncThunk(
   "transactions/addTransaction",
-  async (transaction) => {
+  async (transaction: TransactionInput) => {
     await addTransaction(transaction);
-    const [processedTransactions, updatedAccounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    return { processedTransactions, updatedAccounts };
+    return fetchFreshMoneyData();
+  },
+);
+
+export const fetchCategoriesThunk = createAsyncThunk(
+  "transactions/fetchCategories",
+  async () => {
+    return await fetchCategories();
   },
 );
 
 export const updateTransactionThunk = createAsyncThunk(
   "transactions/updateTransaction",
-  async ({ id, ...transaction }) => {
+  async ({ id, ...transaction }: UpdateTransactionPayload) => {
     await updateTransaction(id, transaction);
-    const [processedTransactions, updatedAccounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    return { processedTransactions, updatedAccounts };
+    return fetchFreshMoneyData();
   },
+);
+
+export const fetchTransactionEditHistoryThunk = createAsyncThunk(
+  "transactions/fetchTransactionEditHistory",
+  async (transactionId: string) => ({
+    transactionId,
+    history: await fetchTransactionEditHistory(transactionId),
+  }),
 );
 
 export const deleteTransactionThunk = createAsyncThunk(
   "transactions/deleteTransaction",
-  async (id) => {
+  async (id: string) => {
     await deleteTransaction(id);
-    const [processedTransactions, updatedAccounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    return { id, updatedAccounts, processedTransactions };
+    return fetchFreshMoneyData();
   },
 );
 
 export const addAccountThunk = createAsyncThunk(
   "transactions/addAccount",
-  async (account) => {
-    return await addAccount(account);
+  async (account: AccountInput) => {
+    await addAccount(account);
+    return fetchFreshMoneyData();
   },
 );
 
 export const editAccountThunk = createAsyncThunk(
   "transactions/editAccount",
-  async ({ id, ...updates }) => {
-    return await updateAccount(id, updates);
+  async ({ id, ...updates }: Required<Pick<AccountInput, "id">> & AccountInput) => {
+    await updateAccount(id, updates);
+    return fetchFreshMoneyData();
   },
 );
 
 export const deleteAccountThunk = createAsyncThunk(
   "transactions/deleteAccount",
-  async (id, { getState }) => {
-    const { transactions } = getState().transactions;
+  async (id: string, { getState }) => {
+    const { transactions } = (getState() as RootState).transactions;
 
     // Don't allow deleting if account has transactions or if it's the cash account
     const hasTransactions = transactions.some(
@@ -89,7 +151,7 @@ export const deleteAccountThunk = createAsyncThunk(
 
     if (!hasTransactions && id !== "cash") {
       await deleteAccount(id);
-      return id;
+      return fetchFreshMoneyData();
     } else {
       throw new Error(
         "Cannot delete account that has transactions or is the cash account",
@@ -98,19 +160,72 @@ export const deleteAccountThunk = createAsyncThunk(
   },
 );
 
-const initialState = {
+export const addCategoryThunk = createAsyncThunk(
+  "transactions/addCategory",
+  async (category: TransactionCategoryInput) => {
+    await addCategory(category);
+    return fetchFreshMoneyData();
+  },
+);
+
+export const editCategoryThunk = createAsyncThunk(
+  "transactions/editCategory",
+  async ({ id, ...updates }: UpdateCategoryPayload) => {
+    await updateCategory(id, updates);
+    return fetchFreshMoneyData();
+  },
+);
+
+export const deleteCategoryThunk = createAsyncThunk(
+  "transactions/deleteCategory",
+  async (id: string) => {
+    await deleteCategory(id);
+    return fetchFreshMoneyData();
+  },
+);
+
+const initialState: TransactionsState = {
   transactions: [],
   accounts: [],
+  categories: [],
   sortOrder: "newest",
   summary: { totalIncome: 0, totalExpense: 0 },
-  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
-  error: null,
+  transactionsStatus: "idle",
+  transactionsError: null,
+  accountsStatus: "idle",
+  accountsError: null,
+  categoriesStatus: "idle",
+  categoriesError: null,
+  editHistoryByTransactionId: {},
+  editHistoryStatusByTransactionId: {},
+  editHistoryErrorByTransactionId: {},
 };
 
-const getTransactionTimestamp = (transaction) =>
-  new Date(
-    `${transaction.transactionDate}T${transaction.transactionTime || "00:00"}:00`,
-  ).getTime();
+const updateTransactions = (
+  state: TransactionsState,
+  transactions: MoneyTransaction[],
+) => {
+  state.transactions = transactions;
+  state.transactions.sort(
+    (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
+  );
+  state.summary = calculateSummary(state.transactions);
+};
+
+const applyFreshMoneyData = (
+  state: TransactionsState,
+  payload: FreshDataPayload,
+) => {
+  updateTransactions(state, payload.processedTransactions);
+  state.accounts = payload.updatedAccounts;
+  state.categories = payload.updatedCategories;
+  state.transactionsStatus = "succeeded";
+  state.transactionsError = null;
+  state.accountsStatus = "succeeded";
+  state.accountsError = null;
+  state.categoriesStatus = "succeeded";
+  state.categoriesError = null;
+};
 
 export const transactionsSlice = createSlice({
   name: "transactions",
@@ -119,115 +234,192 @@ export const transactionsSlice = createSlice({
     toggleSortOrder: (state) => {
       state.sortOrder = state.sortOrder === "newest" ? "oldest" : "newest";
     },
+    clearMoneyData: () => initialState,
   },
   extraReducers: (builder) => {
     builder
       // Fetch Transactions
       .addCase(fetchTransactionsThunk.pending, (state) => {
-        state.status = "loading";
+        state.transactionsStatus = "loading";
+        state.transactionsError = null;
       })
       .addCase(fetchTransactionsThunk.fulfilled, (state, action) => {
-        state.status = "succeeded";
-        state.transactions = action.payload;
-        // Ensure transactions are sorted by date (oldest first)
-        state.transactions.sort(
-          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-        );
-        state.summary = calculateSummary(action.payload);
+        state.transactionsStatus = "succeeded";
+        state.transactionsError = null;
+        updateTransactions(state, action.payload);
       })
       .addCase(fetchTransactionsThunk.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = action.error.message;
+        state.transactionsStatus = "failed";
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Fetch Accounts
       .addCase(fetchAccountsThunk.pending, (state) => {
-        state.status = "loading";
+        state.accountsStatus = "loading";
+        state.accountsError = null;
       })
       .addCase(fetchAccountsThunk.fulfilled, (state, action) => {
-        state.status = "succeeded";
+        state.accountsStatus = "succeeded";
+        state.accountsError = null;
         state.accounts = action.payload;
       })
       .addCase(fetchAccountsThunk.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = action.error.message;
+        state.accountsStatus = "failed";
+        state.accountsError = action.error.message ?? null;
+      })
+
+      // Fetch Categories
+      .addCase(fetchCategoriesThunk.pending, (state) => {
+        state.categoriesStatus = "loading";
+        state.categoriesError = null;
+      })
+      .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
+        state.categoriesStatus = "succeeded";
+        state.categoriesError = null;
+        state.categories = action.payload;
+      })
+      .addCase(fetchCategoriesThunk.rejected, (state, action) => {
+        state.categoriesStatus = "failed";
+        state.categoriesError = action.error.message ?? null;
       })
 
       // Add Transaction
       .addCase(addTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = action.payload.processedTransactions;
-        // Sort transactions by transaction date with newest transactions last
-        state.transactions.sort(
-          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-        );
-        state.summary = calculateSummary(state.transactions);
-        state.accounts = action.payload.updatedAccounts;
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(addTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Update Transaction
       .addCase(updateTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = action.payload.processedTransactions;
-        state.transactions.sort(
-          (a, b) => getTransactionTimestamp(a) - getTransactionTimestamp(b),
-        );
-        state.summary = calculateSummary(state.transactions);
-        state.accounts = action.payload.updatedAccounts;
+        applyFreshMoneyData(state, action.payload);
+        const transactionId = action.meta.arg.id;
+        delete state.editHistoryByTransactionId[transactionId];
+        state.editHistoryStatusByTransactionId[transactionId] = "idle";
+        state.editHistoryErrorByTransactionId[transactionId] = null;
+      })
+      .addCase(updateTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
+      })
+
+      // Fetch Transaction Edit History
+      .addCase(fetchTransactionEditHistoryThunk.pending, (state, action) => {
+        const transactionId = action.meta.arg;
+        state.editHistoryStatusByTransactionId[transactionId] = "loading";
+        state.editHistoryErrorByTransactionId[transactionId] = null;
+      })
+      .addCase(fetchTransactionEditHistoryThunk.fulfilled, (state, action) => {
+        const { transactionId, history } = action.payload;
+        state.editHistoryByTransactionId[transactionId] = history;
+        state.editHistoryStatusByTransactionId[transactionId] = "succeeded";
+        state.editHistoryErrorByTransactionId[transactionId] = null;
+      })
+      .addCase(fetchTransactionEditHistoryThunk.rejected, (state, action) => {
+        const transactionId = action.meta.arg;
+        state.editHistoryStatusByTransactionId[transactionId] = "failed";
+        state.editHistoryErrorByTransactionId[transactionId] =
+          action.error.message ?? null;
       })
 
       // Delete Transaction
       .addCase(deleteTransactionThunk.fulfilled, (state, action) => {
-        state.transactions = action.payload.processedTransactions;
-        state.summary = calculateSummary(state.transactions);
-        state.accounts = action.payload.updatedAccounts;
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(deleteTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
       })
 
       // Add Account
       .addCase(addAccountThunk.fulfilled, (state, action) => {
-        state.accounts.push(action.payload);
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(addAccountThunk.rejected, (state, action) => {
+        state.accountsError = action.error.message ?? null;
       })
 
       // Edit Account
       .addCase(editAccountThunk.fulfilled, (state, action) => {
-        const index = state.accounts.findIndex(
-          (account) => account.id === action.payload.id,
-        );
-        if (index !== -1) {
-          state.accounts[index] = {
-            ...state.accounts[index],
-            ...action.payload,
-          };
-        }
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(editAccountThunk.rejected, (state, action) => {
+        state.accountsError = action.error.message ?? null;
       })
 
       // Delete Account
       .addCase(deleteAccountThunk.fulfilled, (state, action) => {
-        state.accounts = state.accounts.filter(
-          (account) => account.id !== action.payload,
-        );
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(deleteAccountThunk.rejected, (state, action) => {
+        state.accountsError = action.error.message ?? null;
+      })
+
+      // Categories
+      .addCase(addCategoryThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(addCategoryThunk.rejected, (state, action) => {
+        state.categoriesError = action.error.message ?? null;
+      })
+      .addCase(editCategoryThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(editCategoryThunk.rejected, (state, action) => {
+        state.categoriesError = action.error.message ?? null;
+      })
+      .addCase(deleteCategoryThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(deleteCategoryThunk.rejected, (state, action) => {
+        state.categoriesError = action.error.message ?? null;
       });
   },
 });
 
-export const { toggleSortOrder } = transactionsSlice.actions;
+export const { clearMoneyData, toggleSortOrder } = transactionsSlice.actions;
 
-export const selectTransactions = (state) => state.transactions.transactions;
-export const selectAccounts = (state) => state.transactions.accounts;
-export const selectAccountById = (id) => (state) =>
+export const selectTransactions = (state: RootState) =>
+  state.transactions.transactions;
+export const selectAccounts = (state: RootState) => state.transactions.accounts;
+export const selectCategories = (state: RootState) =>
+  state.transactions.categories;
+export const selectAccountById = (id: string) => (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === id);
-export const selectCashBalance = (state) =>
+export const selectCashBalance = (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === "cash")
     ?.balance || 0;
-export const selectBankBalance = (state) =>
+export const selectBankBalance = (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === "bank")
     ?.balance || 0;
-export const selectTotalBalance = (state) =>
+export const selectTotalBalance = (state: RootState) =>
   state.transactions.accounts.reduce(
     (sum, account) => sum + (Number(account.balance) || 0),
     0,
   );
-export const selectSummary = (state) => state.transactions.summary;
-export const selectSortOrder = (state) => state.transactions.sortOrder;
-export const selectTransactionsStatus = (state) => state.transactions.status;
-export const selectTransactionsError = (state) => state.transactions.error;
+export const selectSummary = (state: RootState) => state.transactions.summary;
+export const selectSortOrder = (state: RootState) =>
+  state.transactions.sortOrder;
+export const selectTransactionsStatus = (state: RootState) =>
+  state.transactions.transactionsStatus;
+export const selectTransactionsError = (state: RootState) =>
+  state.transactions.transactionsError;
+export const selectAccountsStatus = (state: RootState) =>
+  state.transactions.accountsStatus;
+export const selectAccountsError = (state: RootState) =>
+  state.transactions.accountsError;
+export const selectCategoriesStatus = (state: RootState) =>
+  state.transactions.categoriesStatus;
+export const selectCategoriesError = (state: RootState) =>
+  state.transactions.categoriesError;
+export const selectTransactionEditHistory =
+  (transactionId: string) => (state: RootState) =>
+    state.transactions.editHistoryByTransactionId[transactionId] ?? [];
+export const selectTransactionEditHistoryStatus =
+  (transactionId: string) => (state: RootState) =>
+    state.transactions.editHistoryStatusByTransactionId[transactionId] ??
+    "idle";
+export const selectTransactionEditHistoryError =
+  (transactionId: string) => (state: RootState) =>
+    state.transactions.editHistoryErrorByTransactionId[transactionId] ?? null;
 
 export default transactionsSlice.reducer;
