@@ -1,4 +1,9 @@
-type NavigationPage = "dashboard" | "accounts" | "transactions" | "categories";
+type NavigationPage =
+  | "dashboard"
+  | "accounts"
+  | "transactions"
+  | "categories"
+  | "reports";
 
 export type NavigationLink = {
   to: string;
@@ -12,6 +17,7 @@ export const getNavigationLinks = (currentPage: NavigationPage) => {
     accounts: { to: "/accounts", text: "Manage Accounts" },
     categories: { to: "/categories", text: "Categories" },
     transactions: { to: "/transactions", text: "Transaction History" },
+    reports: { to: "/reports", text: "Reports" },
   };
 
   // Return all links except the current page

@@ -2,16 +2,52 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { recalculateBalances } from "./moneyCalculations.ts";
 import {
+  buildImportPreviewRows,
+  buildReportSummary,
   buildBalanceTrend,
   buildCategoryBreakdown,
+  buildTransactionDuplicateKey,
+  filterTransactionsForReport,
   buildMonthlyCashflow,
   buildTransactionTypeMix,
+  rowsToCsv,
 } from "./moneyAnalytics.ts";
-import type { Account, MoneyTransaction, TransactionInput } from "@/types/money";
+import type {
+  Account,
+  MoneyTransaction,
+  TransactionCategory,
+  TransactionInput,
+} from "@/types/money";
 
 const accounts: Account[] = [
   { id: "cash", name: "Cash", balance: 0, icon: "cash" },
   { id: "bank", name: "Bank", balance: 0, icon: "bank" },
+];
+const categories: TransactionCategory[] = [
+  {
+    id: "salary",
+    type: "income",
+    name: "Salary",
+    parentId: null,
+    isSystem: false,
+    sortOrder: 0,
+  },
+  {
+    id: "food",
+    type: "expense",
+    name: "Food",
+    parentId: null,
+    isSystem: false,
+    sortOrder: 0,
+  },
+  {
+    id: "dinner",
+    type: "expense",
+    name: "Dinner",
+    parentId: "food",
+    isSystem: false,
+    sortOrder: 0,
+  },
 ];
 
 const transaction = (
@@ -221,4 +257,142 @@ test("transaction type mix tracks count and amount", () => {
       { type: "person", count: 0, amount: 0 },
     ],
   );
+});
+
+test("report filters narrow by date type account and category", () => {
+  const rows = [
+    transaction({
+      type: "income",
+      amount: 500,
+      account: "cash",
+      categoryId: "salary",
+      transactionDate: "2026-04-01",
+    }),
+    transaction({
+      type: "expense",
+      amount: 125,
+      account: "bank",
+      categoryId: "food",
+      transactionDate: "2026-04-15",
+    }),
+  ];
+
+  assert.deepEqual(
+    filterTransactionsForReport(rows, {
+      dateFrom: "2026-04-10",
+      type: "expense",
+      accountId: "bank",
+      categoryId: "food",
+    }).map(({ amount }) => amount),
+    [125],
+  );
+});
+
+test("report summary includes income expense net count and current balance", () => {
+  const summary = buildReportSummary(
+    [
+      transaction({ type: "income", amount: 500, account: "cash" }),
+      transaction({ type: "expense", amount: 125, account: "cash" }),
+      transaction({
+        type: "person",
+        amount: 50,
+        account: "cash",
+        direction: "from",
+        person: "Asha",
+      }),
+    ],
+    [
+      { id: "cash", name: "Cash", balance: 300, icon: "cash" },
+      { id: "bank", name: "Bank", balance: 200, icon: "bank" },
+    ],
+  );
+
+  assert.deepEqual(summary, {
+    totalIncome: 550,
+    totalExpense: 125,
+    netCashflow: 425,
+    totalBalance: 500,
+    transactionCount: 3,
+  });
+});
+
+test("csv export escapes commas quotes and line breaks", () => {
+  assert.equal(
+    rowsToCsv(["note"], [{ note: 'Lunch, "team"\npaid' }]),
+    'note\r\n"Lunch, ""team""\npaid"',
+  );
+});
+
+test("import preview maps names and skips duplicate-looking rows by default", () => {
+  const existing = transaction({
+    type: "expense",
+    amount: 125,
+    account: "cash",
+    categoryId: "food",
+    subcategoryId: "dinner",
+    note: "Dinner",
+    transactionDate: "2026-04-26",
+    transactionTime: "20:00",
+  });
+  const rows = buildImportPreviewRows({
+    rows: [
+      {
+        type: "expense",
+        amount: "125",
+        transactionDate: "2026-04-26",
+        transactionTime: "20:00",
+        account: "Cash",
+        category: "Food",
+        subcategory: "Dinner",
+        note: "Dinner",
+      },
+      {
+        type: "income",
+        amount: "500",
+        transactionDate: "2026-04-27",
+        transactionTime: "09:00",
+        account: "Bank",
+        category: "Salary",
+        note: "Salary",
+      },
+    ],
+    accounts,
+    categories,
+    existingTransactions: [existing],
+  });
+
+  assert.equal(rows[0].status, "duplicate");
+  assert.equal(rows[0].include, false);
+  assert.equal(rows[1].status, "valid");
+  assert.equal(rows[1].include, true);
+  assert.equal(rows[1].transaction?.account, "bank");
+  assert.equal(rows[1].transaction?.categoryId, "salary");
+});
+
+test("duplicate keys normalize note and amount values", () => {
+  const first = buildTransactionDuplicateKey(
+    transaction({
+      type: "expense",
+      amount: 125,
+      account: "cash",
+      categoryId: "food",
+      note: " Dinner ",
+    }),
+  );
+  const second = buildTransactionDuplicateKey({
+    type: "expense",
+    amount: 125.0,
+    account: "cash",
+    from: null,
+    to: null,
+    direction: null,
+    person: null,
+    categoryId: "food",
+    subcategoryId: null,
+    note: "dinner",
+    transactionDate: "2026-04-26",
+    transactionTime: "10:00",
+  });
+
+  assert.equal(first, second);
 });

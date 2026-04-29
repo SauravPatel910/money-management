@@ -9,6 +9,12 @@ import type {
 } from "@/types/money";
 export { calculateSummary, recalculateBalances } from "@/lib/moneyCalculations";
 
+export type FreshMoneyData = {
+  processedTransactions: MoneyTransaction[];
+  updatedAccounts: Account[];
+  updatedCategories: TransactionCategory[];
+};
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -42,6 +48,12 @@ export const addTransaction = async (transaction: TransactionInput) =>
   requestJson<MoneyTransaction>("/api/transactions", {
     method: "POST",
     body: JSON.stringify(transaction),
+  });
+
+export const importTransactions = async (transactions: TransactionInput[]) =>
+  requestJson<FreshMoneyData>("/api/transactions/import", {
+    method: "POST",
+    body: JSON.stringify({ transactions }),
   });
 
 export const updateTransaction = async (

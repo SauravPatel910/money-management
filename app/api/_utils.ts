@@ -299,6 +299,7 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
       "Category is not valid",
       "Subcategory is not valid",
       "Category name is required",
+      "At least one transaction is required",
       "Parent category is not valid",
       "Cannot delete a category that has transactions",
       "Cannot delete a category that has subcategories",

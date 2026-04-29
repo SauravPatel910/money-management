@@ -17,6 +17,7 @@ import {
   fetchCategories,
   fetchTransactionEditHistory,
   updateTransaction,
+  importTransactions,
   deleteTransaction,
   addAccount,
   updateAccount,
@@ -104,6 +105,13 @@ export const updateTransactionThunk = createAsyncThunk(
   async ({ id, ...transaction }: UpdateTransactionPayload) => {
     await updateTransaction(id, transaction);
     return fetchFreshMoneyData();
+  },
+);
+
+export const importTransactionsThunk = createAsyncThunk(
+  "transactions/importTransactions",
+  async (transactions: TransactionInput[]) => {
+    return await importTransactions(transactions);
   },
 );
 
@@ -300,6 +308,14 @@ export const transactionsSlice = createSlice({
         state.editHistoryErrorByTransactionId[transactionId] = null;
       })
       .addCase(updateTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
+      })
+
+      // Import Transactions
+      .addCase(importTransactionsThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(importTransactionsThunk.rejected, (state, action) => {
         state.transactionsError = action.error.message ?? null;
       })
 

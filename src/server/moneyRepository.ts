@@ -664,6 +664,45 @@ export async function createTransaction(
   return transactionFromDb(refreshed);
 }
 
+export async function importTransactions(
+  userId: string,
+  transactions: TransactionInput[],
+) {
+  if (transactions.length === 0) {
+    throw new Error("At least one transaction is required");
+  }
+
+  await ensureDefaultAccounts(userId);
+
+  const refreshed = await prisma.$transaction(
+    async (tx) => {
+      await ensureFallbackCategories(tx, userId);
+
+      for (const transaction of transactions) {
+        validateTransactionInput(transaction);
+        await validateTransactionCategoryOwnership(tx, userId, transaction);
+        await tx.transaction.create({
+          data: {
+            ...normalizeTransactionInput(transaction),
+            userId,
+          },
+        });
+      }
+
+      return rebuildBalances(tx, userId);
+    },
+    MONEY_TRANSACTION_OPTIONS,
+  );
+
+  const updatedCategories = await listCategories(userId);
+
+  return {
+    processedTransactions: refreshed.processedTransactions,
+    updatedAccounts: refreshed.updatedAccounts,
+    updatedCategories,
+  };
+}
+
 export async function updateTransaction(
   userId: string,
   id: string,
