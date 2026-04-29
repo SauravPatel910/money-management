@@ -214,59 +214,76 @@ const validateTransactionInput = (transaction: TransactionInput) => {
   }
 };
 
-export async function ensureDefaultAccounts() {
-  const accountCount = await prisma.account.count();
+export async function ensureDefaultAccounts(userId: string) {
+  const accountCount = await prisma.moneyAccount.count({
+    where: { userId },
+  });
 
   if (accountCount === 0) {
-    await prisma.account.createMany({
+    await prisma.moneyAccount.createMany({
       data: DEFAULT_ACCOUNTS.map((account) => ({
         id: account.id,
         name: account.name,
         balance: account.balance,
         icon: account.icon,
+        userId,
       })),
       skipDuplicates: true,
     });
   }
 }
 
-const listAccountsFromDb = async (client: PrismaClientOrTransaction) => {
-  const accounts = await client.account.findMany({
+const listAccountsFromDb = async (
+  client: PrismaClientOrTransaction,
+  userId: string,
+) => {
+  const accounts = await client.moneyAccount.findMany({
+    where: { userId },
     orderBy: { createdAt: "asc" },
   });
   return accounts.map(accountFromDb);
 };
 
-export async function listAccounts() {
-  await ensureDefaultAccounts();
-  return listAccountsFromDb(prisma);
+export async function listAccounts(userId: string) {
+  await ensureDefaultAccounts(userId);
+  return listAccountsFromDb(prisma, userId);
 }
 
-const listTransactionsFromDb = async (client: PrismaClientOrTransaction) => {
+const listTransactionsFromDb = async (
+  client: PrismaClientOrTransaction,
+  userId: string,
+) => {
   const transactions = await client.transaction.findMany({
+    where: { userId },
     orderBy: [{ transactionDate: "asc" }, { createdAt: "asc" }],
   });
 
   return transactions.map(transactionFromDb);
 };
 
-export async function listTransactions() {
-  return listTransactionsFromDb(prisma);
+export async function listTransactions(userId: string) {
+  return listTransactionsFromDb(prisma, userId);
 }
 
-export async function listTransactionEditHistory(transactionId: string) {
+export async function listTransactionEditHistory(
+  userId: string,
+  transactionId: string,
+) {
   const history = await prisma.transactionEditHistory.findMany({
-    where: { transactionId },
+    where: {
+      transactionId,
+      transaction: { userId },
+    },
     orderBy: { editedAt: "desc" },
   });
 
   return history.map(transactionEditHistoryFromDb);
 }
 
-async function rebuildBalances(client: PrismaClientOrTransaction) {
+async function rebuildBalances(client: PrismaClientOrTransaction, userId: string) {
   const [accounts, transactions] = await Promise.all([
-    listAccountsFromDb(client),
-    listTransactionsFromDb(client),
+    listAccountsFromDb(client, userId),
+    listTransactionsFromDb(client, userId),
   ]);
   const { accountBalances, processedTransactions } = recalculateBalances(
     transactions,
@@ -284,8 +301,8 @@ async function rebuildBalances(client: PrismaClientOrTransaction) {
       }),
     ),
     ...accounts.map((account) =>
-      client.account.update({
-        where: { id: account.id },
+      client.moneyAccount.update({
+        where: { userId_id: { userId, id: account.id } },
         data: {
           balance: new Prisma.Decimal(accountBalances[account.id] || 0),
         },
@@ -302,15 +319,22 @@ async function rebuildBalances(client: PrismaClientOrTransaction) {
   };
 }
 
-export async function createTransaction(transaction: TransactionInput) {
+export async function createTransaction(
+  userId: string,
+  transaction: TransactionInput,
+) {
   validateTransactionInput(transaction);
+  await ensureDefaultAccounts(userId);
 
   const refreshed = await prisma.$transaction(
     async (tx) => {
       const created = await tx.transaction.create({
-        data: normalizeTransactionInput(transaction),
+        data: {
+          ...normalizeTransactionInput(transaction),
+          userId,
+        },
       });
-      await rebuildBalances(tx);
+      await rebuildBalances(tx, userId);
       return tx.transaction.findUniqueOrThrow({
         where: { id: created.id },
       });
@@ -322,12 +346,15 @@ export async function createTransaction(transaction: TransactionInput) {
 }
 
 export async function updateTransaction(
+  userId: string,
   id: string,
   transaction: Partial<TransactionInput>,
 ) {
   const updated = await prisma.$transaction(
     async (tx) => {
-      const existing = await tx.transaction.findUniqueOrThrow({ where: { id } });
+      const existing = await tx.transaction.findFirstOrThrow({
+        where: { id, userId },
+      });
       const beforeSnapshot = dbTransactionToInput(existing);
       const nextTransaction: TransactionInput = {
         ...beforeSnapshot,
@@ -383,7 +410,7 @@ export async function updateTransaction(
         },
       });
 
-      await rebuildBalances(tx);
+      await rebuildBalances(tx, userId);
       return updatedTransaction;
     },
     MONEY_TRANSACTION_OPTIONS,
@@ -392,18 +419,23 @@ export async function updateTransaction(
   return transactionFromDb(updated);
 }
 
-export async function deleteTransaction(id: string) {
+export async function deleteTransaction(userId: string, id: string) {
   await prisma.$transaction(
     async (tx) => {
+      await tx.transaction.findFirstOrThrow({
+        where: { id, userId },
+        select: { id: true },
+      });
       await tx.transaction.delete({ where: { id } });
-      await rebuildBalances(tx);
+      await rebuildBalances(tx, userId);
     },
     MONEY_TRANSACTION_OPTIONS,
   );
   return id;
 }
 
-export async function createAccount(account: AccountInput) {
+export async function createAccount(userId: string, account: AccountInput) {
+  await ensureDefaultAccounts(userId);
   const id =
     account.id ||
     account.name
@@ -413,22 +445,27 @@ export async function createAccount(account: AccountInput) {
       .replace(/(^-|-$)/g, "") ||
     Date.now().toString();
 
-  const created = await prisma.account.create({
+  const created = await prisma.moneyAccount.create({
     data: {
       id,
       name: account.name,
       owner: account.owner || null,
       icon: account.icon || "bank",
       balance: 0,
+      userId,
     },
   });
 
   return accountFromDb(created);
 }
 
-export async function updateAccount(id: string, updates: Partial<AccountInput>) {
-  const updated = await prisma.account.update({
-    where: { id },
+export async function updateAccount(
+  userId: string,
+  id: string,
+  updates: Partial<AccountInput>,
+) {
+  const updated = await prisma.moneyAccount.update({
+    where: { userId_id: { userId, id } },
     data: {
       ...(updates.name !== undefined && { name: updates.name }),
       ...(updates.owner !== undefined && { owner: updates.owner || null }),
@@ -439,13 +476,14 @@ export async function updateAccount(id: string, updates: Partial<AccountInput>) 
   return accountFromDb(updated);
 }
 
-export async function deleteAccount(id: string) {
+export async function deleteAccount(userId: string, id: string) {
   if (id === "cash") {
     throw new Error("The Cash account cannot be deleted.");
   }
 
   const transactionCount = await prisma.transaction.count({
     where: {
+      userId,
       OR: [{ account: id }, { from: id }, { to: id }],
     },
   });
@@ -454,6 +492,6 @@ export async function deleteAccount(id: string) {
     throw new Error("Cannot delete account that has transactions");
   }
 
-  await prisma.account.delete({ where: { id } });
+  await prisma.moneyAccount.delete({ where: { userId_id: { userId, id } } });
   return id;
 }

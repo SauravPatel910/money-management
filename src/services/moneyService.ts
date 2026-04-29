@@ -10,6 +10,7 @@ export { calculateSummary, recalculateBalances } from "@/lib/moneyCalculations";
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers || {}),
@@ -18,6 +19,9 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.location.assign("/login");
+    }
     throw new Error(body?.message || `Request failed with ${response.status}`);
   }
 

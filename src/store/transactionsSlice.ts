@@ -184,6 +184,7 @@ export const transactionsSlice = createSlice({
     toggleSortOrder: (state) => {
       state.sortOrder = state.sortOrder === "newest" ? "oldest" : "newest";
     },
+    clearMoneyData: () => initialState,
   },
   extraReducers: (builder) => {
     builder
@@ -290,7 +291,7 @@ export const transactionsSlice = createSlice({
   },
 });
 
-export const { toggleSortOrder } = transactionsSlice.actions;
+export const { clearMoneyData, toggleSortOrder } = transactionsSlice.actions;
 
 export const selectTransactions = (state: RootState) =>
   state.transactions.transactions;

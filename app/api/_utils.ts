@@ -7,6 +7,7 @@ import type {
   TransactionType,
 } from "@/types/money";
 import { toAmount } from "@/lib/moneyCalculations";
+import { UnauthorizedError } from "@/server/authSession";
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -216,6 +217,10 @@ export const jsonError = (message: string, status: number) =>
   NextResponse.json({ message }, { status });
 
 export const handleApiError = (error: unknown, fallbackMessage: string) => {
+  if (error instanceof UnauthorizedError) {
+    return jsonError(error.message, 401);
+  }
+
   if (error instanceof ValidationError) {
     return jsonError(error.message, 400);
   }
