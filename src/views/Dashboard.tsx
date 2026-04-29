@@ -9,6 +9,7 @@ import { useTransactionForm } from "../hooks/useTransactionForm";
 import { useTransactionValidation } from "../hooks/useTransactionValidation";
 import { getCurrentIstDateTimeInputs } from "../utils/dateTime";
 import TransactionForm from "../components/forms/TransactionForm";
+import DashboardCharts from "../components/dashboard/DashboardCharts";
 import RecentActivity from "../components/transactions/RecentActivity";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
@@ -35,6 +36,8 @@ function Dashboard() {
     transactionsError,
     accountsStatus,
     accountsError,
+    categoriesStatus,
+    categoriesError,
   } = useAppData();
   const { formatDate } = useCommonUtils();
   const currentDateTime = getCurrentIstDateTimeInputs();
@@ -94,15 +97,23 @@ function Dashboard() {
     [dispatch, form, resetAfterSubmit, validateTransaction],
   );
   if (
+    transactionsStatus === "idle" ||
+    accountsStatus === "idle" ||
+    categoriesStatus === "idle" ||
     (transactionsStatus === "loading" && transactions.length === 0) ||
-    (accountsStatus === "loading" && accounts.length === 0)
+    (accountsStatus === "loading" && accounts.length === 0) ||
+    categoriesStatus === "loading"
   ) {
     return <Loading />;
   }
-  if (transactionsStatus === "failed" || accountsStatus === "failed") {
+  if (
+    transactionsStatus === "failed" ||
+    accountsStatus === "failed" ||
+    categoriesStatus === "failed"
+  ) {
     return (
       <Failed
-        error={transactionsError || accountsError}
+        error={transactionsError || accountsError || categoriesError}
         text="Failed to load dashboard data. Please try again later."
       />
     );
@@ -132,6 +143,7 @@ function Dashboard() {
 
         <RecentActivity transactions={transactions} formatDate={formatDate} />
       </div>
+      <DashboardCharts transactions={transactions} />
     </PageLayout>
   );
 }

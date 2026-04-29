@@ -17,6 +17,7 @@ model User {
   sessions      Session[]
   moneyAccounts MoneyAccount[]
   transactions  Transaction[]
+  categories    TransactionCategory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -91,12 +92,16 @@ model Transaction {
   direction       String?
   person          String?
   note            String?
+  categoryId      String?  @map("category_id")
+  subcategoryId   String?  @map("subcategory_id")
   transactionDate DateTime @map("transaction_date")
   entryDate       DateTime @map("entry_date")
   accountBalances Json?    @map("account_balances")
   totalBalance    Decimal  @default(0) @map("total_balance") @db.Decimal(14, 2)
   userId          String   @map("user_id")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        TransactionCategory? @relation("TransactionCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory     TransactionCategory? @relation("TransactionSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   editHistory     TransactionEditHistory[]
@@ -105,8 +110,33 @@ model Transaction {
   @@index([account])
   @@index([from])
   @@index([to])
+  @@index([categoryId])
+  @@index([subcategoryId])
   @@index([transactionDate])
   @@map("transactions")
+}
+
+model TransactionCategory {
+  id                       String   @id @default(cuid())
+  userId                   String   @map("user_id")
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                     String
+  name                     String
+  parentId                 String?  @map("parent_id")
+  parent                   TransactionCategory? @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: Restrict)
+  children                 TransactionCategory[] @relation("CategoryChildren")
+  isSystem                 Boolean  @default(false) @map("is_system")
+  sortOrder                Int      @default(0) @map("sort_order")
+  transactionsAsCategory   Transaction[] @relation("TransactionCategory")
+  transactionsAsSubcategory Transaction[] @relation("TransactionSubcategory")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([userId, type, name, parentId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([type])
+  @@map("transaction_categories")
 }
 
 model TransactionEditHistory {

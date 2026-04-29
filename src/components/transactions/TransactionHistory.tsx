@@ -1,6 +1,9 @@
 import { Fragment, memo, useMemo, useState } from "react";
 import { useAppSelector } from "../../config/reduxStore";
-import { selectAccounts } from "../../store/transactionsSlice";
+import {
+  selectAccounts,
+  selectCategories,
+} from "../../store/transactionsSlice";
 import type {
   Account,
   MoneyTransaction,
@@ -12,6 +15,7 @@ import { formatCurrency } from "../../utils/formatters";
 type SortOrder = "newest" | "oldest";
 type FormatDate = (dateString: string, timeString?: string) => string;
 type GetAccountName = (accountId: string) => string;
+type GetCategoryName = (categoryId: string) => string;
 type AccountSummary = Pick<Account, "id" | "name">;
 
 type TransactionHistoryProps = {
@@ -44,12 +48,17 @@ const TransactionHistory = ({
   sortedTransactions,
 }: TransactionHistoryProps) => {
   const accounts = useAppSelector(selectAccounts);
+  const categories = useAppSelector(selectCategories);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
   const accountNameById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account.name])),
     [accounts],
+  );
+  const categoryNameById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories],
   );
   const accountSummaries = useMemo<AccountSummary[]>(
     () => accounts.map(({ id, name }) => ({ id, name })),
@@ -58,6 +67,10 @@ const TransactionHistory = ({
   const getAccountName = useMemo<GetAccountName>(
     () => (accountId) => accountNameById.get(accountId) || accountId,
     [accountNameById],
+  );
+  const getCategoryName = useMemo<GetCategoryName>(
+    () => (categoryId) => categoryNameById.get(categoryId) || categoryId,
+    [categoryNameById],
   );
   const filteredTransactions = useMemo(
     () =>
@@ -187,6 +200,9 @@ const TransactionHistory = ({
                   Details
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
                   Amount
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
@@ -213,6 +229,7 @@ const TransactionHistory = ({
                       expandedHistoryTransactionId === transaction.id
                     }
                     getAccountName={getAccountName}
+                    getCategoryName={getCategoryName}
                     accounts={accountSummaries}
                   />
                   {expandedHistoryTransactionId === transaction.id && (
@@ -222,6 +239,7 @@ const TransactionHistory = ({
                       error={selectedEditHistoryError}
                       formatDate={formatDate}
                       getAccountName={getAccountName}
+                      getCategoryName={getCategoryName}
                     />
                   )}
                 </Fragment>
@@ -348,6 +366,8 @@ const HISTORY_FIELD_LABELS: Record<string, string> = {
   direction: "Direction",
   person: "Person",
   note: "Note",
+  categoryId: "Category",
+  subcategoryId: "Subcategory",
   transactionDate: "Transaction date",
   transactionTime: "Transaction time",
   entryDate: "Entry date",
@@ -359,6 +379,7 @@ const formatHistoryValue = (
   value: TransactionEditChangedField["before"],
   formatDate: FormatDate,
   getAccountName: GetAccountName,
+  getCategoryName: GetCategoryName,
 ) => {
   if (value === null || value === "") {
     return "-";
@@ -370,6 +391,10 @@ const formatHistoryValue = (
 
   if (field === "account" || field === "from" || field === "to") {
     return getAccountName(String(value));
+  }
+
+  if (field === "categoryId" || field === "subcategoryId") {
+    return getCategoryName(String(value));
   }
 
   if (field === "transactionDate") {
@@ -398,15 +423,17 @@ const TransactionEditHistoryRow = ({
   error,
   formatDate,
   getAccountName,
+  getCategoryName,
 }: {
   history: TransactionEditHistoryRecord[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
   formatDate: FormatDate;
   getAccountName: GetAccountName;
+  getCategoryName: GetCategoryName;
 }) => (
   <tr className="bg-primary-50/50">
-    <td colSpan={8} className="px-4 py-4">
+    <td colSpan={9} className="px-4 py-4">
       <div className="rounded-xl border border-primary-100 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h4 className="text-sm font-semibold text-primary-700">
@@ -457,6 +484,7 @@ const TransactionEditHistoryRow = ({
                               change.before,
                               formatDate,
                               getAccountName,
+                              getCategoryName,
                             )}
                           </span>
                         </span>
@@ -468,6 +496,7 @@ const TransactionEditHistoryRow = ({
                               change.after,
                               formatDate,
                               getAccountName,
+                              getCategoryName,
                             )}
                           </span>
                         </span>
@@ -494,6 +523,7 @@ const TransactionRow = memo(
     toggleTransactionHistory,
     isHistoryOpen,
     getAccountName,
+    getCategoryName,
     accounts,
   }: {
     transaction: MoneyTransaction;
@@ -503,6 +533,7 @@ const TransactionRow = memo(
     toggleTransactionHistory: (id: string) => void;
     isHistoryOpen: boolean;
     getAccountName: GetAccountName;
+    getCategoryName: GetCategoryName;
     accounts: AccountSummary[];
   }) => {
     const changedAccountIds = getChangedAccountIds(transaction);
@@ -535,6 +566,18 @@ const TransactionRow = memo(
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap capitalize">
           {getTransactionDetails(transaction, getAccountName)}
+        </td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap">
+          <div className="font-medium text-primary-700">
+            {transaction.categoryId
+              ? getCategoryName(transaction.categoryId)
+              : transaction.category?.name || "-"}
+          </div>
+          {transaction.subcategoryId && (
+            <div className="text-xs text-gray-500">
+              {getCategoryName(transaction.subcategoryId)}
+            </div>
+          )}
         </td>
         <td
           className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${getAmountStyles(

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { recalculateBalances } from "./moneyCalculations.ts";
+import {
+  buildBalanceTrend,
+  buildCategoryBreakdown,
+  buildMonthlyCashflow,
+  buildTransactionTypeMix,
+} from "./moneyAnalytics.ts";
 import type { Account, MoneyTransaction, TransactionInput } from "@/types/money";
 
 const accounts: Account[] = [
@@ -20,6 +26,17 @@ const transaction = (
   direction: overrides.direction ?? null,
   person: overrides.person ?? null,
   note: overrides.note ?? null,
+  categoryId: overrides.categoryId ?? null,
+  subcategoryId: overrides.subcategoryId ?? null,
+  category: overrides.categoryId
+    ? {
+        id: overrides.categoryId,
+        type: overrides.type,
+        name: overrides.categoryId === "salary" ? "Salary" : "Food",
+        parentId: null,
+        isSystem: false,
+      }
+    : null,
   transactionDate: overrides.transactionDate ?? "2026-04-26",
   transactionTime: overrides.transactionTime ?? "10:00",
   entryDate: overrides.entryDate ?? "2026-04-26",
@@ -122,6 +139,86 @@ test("chronological ordering produces expected running balances", () => {
     [
       { id: earlyIncome.id, totalBalance: 100 },
       { id: lateExpense.id, totalBalance: 80 },
+    ],
+  );
+});
+
+test("category breakdown totals income and expense categories", () => {
+  const breakdown = buildCategoryBreakdown([
+    transaction({ type: "income", amount: 500, account: "cash", categoryId: "salary" }),
+    transaction({ type: "expense", amount: 125, account: "cash", categoryId: "food" }),
+  ]);
+
+  assert.deepEqual(
+    breakdown.map(({ categoryName, income, expense }) => ({
+      categoryName,
+      income,
+      expense,
+    })),
+    [
+      { categoryName: "Salary", income: 500, expense: 0 },
+      { categoryName: "Food", income: 0, expense: 125 },
+    ],
+  );
+});
+
+test("monthly cashflow includes person payments in income and expense", () => {
+  const cashflow = buildMonthlyCashflow([
+    transaction({ type: "income", amount: 500, account: "cash" }),
+    transaction({ type: "expense", amount: 125, account: "cash" }),
+    transaction({
+      type: "person",
+      amount: 50,
+      account: "cash",
+      direction: "from",
+      person: "Asha",
+    }),
+  ]);
+
+  assert.deepEqual(cashflow, [
+    { month: "2026-04", income: 550, expense: 125, net: 425 },
+  ]);
+});
+
+test("balance trend uses chronological transaction balances", () => {
+  const { processedTransactions } = recalculateBalances(
+    [
+      transaction({
+        type: "expense",
+        amount: 20,
+        account: "cash",
+        transactionTime: "12:00",
+      }),
+      transaction({
+        type: "income",
+        amount: 100,
+        account: "cash",
+        transactionTime: "09:00",
+      }),
+    ],
+    accounts,
+  );
+
+  assert.deepEqual(
+    buildBalanceTrend(processedTransactions).map(({ balance }) => balance),
+    [100, 80],
+  );
+});
+
+test("transaction type mix tracks count and amount", () => {
+  const mix = buildTransactionTypeMix([
+    transaction({ type: "income", amount: 500, account: "cash" }),
+    transaction({ type: "income", amount: 100, account: "bank" }),
+    transaction({ type: "transfer", amount: 50, from: "cash", to: "bank" }),
+  ]);
+
+  assert.deepEqual(
+    mix.map(({ type, count, amount }) => ({ type, count, amount })),
+    [
+      { type: "income", count: 2, amount: 600 },
+      { type: "expense", count: 0, amount: 0 },
+      { type: "transfer", count: 1, amount: 50 },
+      { type: "person", count: 0, amount: 0 },
     ],
   );
 });

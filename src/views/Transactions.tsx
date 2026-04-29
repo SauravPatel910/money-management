@@ -47,6 +47,8 @@ function TransactionHistoryPage() {
     transactionsError,
     accountsStatus,
     accountsError,
+    categoriesStatus,
+    categoriesError,
   } = useAppData();
   const { formatDate } = useCommonUtils();
   const sortOrder = useAppSelector(selectSortOrder);
@@ -155,6 +157,8 @@ function TransactionHistoryPage() {
         transactionTime: latestDateTime.time,
         entryDate: latestDateTime.date,
         entryTime: latestDateTime.time,
+        categoryId: transaction.categoryId || "",
+        subcategoryId: transaction.subcategoryId || "",
         note: transaction.note || "",
       };
 
@@ -248,15 +252,23 @@ function TransactionHistoryPage() {
   }, [transactions, sortOrder]);
 
   if (
+    transactionsStatus === "idle" ||
+    accountsStatus === "idle" ||
+    categoriesStatus === "idle" ||
     (transactionsStatus === "loading" && transactions.length === 0) ||
-    (accountsStatus === "loading" && accounts.length === 0)
+    (accountsStatus === "loading" && accounts.length === 0) ||
+    categoriesStatus === "loading"
   ) {
     return <Loading />;
   }
-  if (transactionsStatus === "failed" || accountsStatus === "failed") {
+  if (
+    transactionsStatus === "failed" ||
+    accountsStatus === "failed" ||
+    categoriesStatus === "failed"
+  ) {
     return (
       <Failed
-        error={transactionsError || accountsError}
+        error={transactionsError || accountsError || categoriesError}
         text="Failed to load dashboard data. Please try again later."
       />
     );

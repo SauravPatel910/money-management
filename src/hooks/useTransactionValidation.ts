@@ -28,6 +28,10 @@ export const useTransactionValidation = (accounts: Account[]) => {
         };
       }
 
+      if (!form.categoryId) {
+        return { ok: false, message: "Please select a category" };
+      }
+
       if ((form.type === "income" || form.type === "expense") && !form.account) {
         return { ok: false, message: "Please select an account" };
       }

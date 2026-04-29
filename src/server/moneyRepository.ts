@@ -4,6 +4,9 @@ import type {
   Account,
   AccountInput,
   MoneyTransaction,
+  TransactionCategory,
+  TransactionCategoryInput,
+  TransactionCategorySummary,
   TransactionEditChangedField,
   TransactionEditHistory,
   TransactionEditSnapshot,
@@ -13,7 +16,9 @@ import type {
 import { recalculateBalances, toAmount } from "@/lib/moneyCalculations";
 
 type PrismaClientOrTransaction = typeof prisma | Prisma.TransactionClient;
-type DbTransaction = Awaited<ReturnType<PrismaClientOrTransaction["transaction"]["findUniqueOrThrow"]>>;
+type DbTransaction = Awaited<
+  ReturnType<PrismaClientOrTransaction["transaction"]["findUniqueOrThrow"]>
+>;
 
 const DEFAULT_ACCOUNTS: Account[] = [
   { id: "cash", name: "Cash", balance: 0, icon: "cash" },
@@ -25,6 +30,7 @@ const SUPPORTED_TRANSACTION_TYPES: TransactionType[] = [
   "transfer",
   "person",
 ];
+const FALLBACK_CATEGORY_NAME = "Uncategorized";
 const MONEY_TRANSACTION_OPTIONS = {
   maxWait: 10000,
   timeout: 30000,
@@ -38,6 +44,8 @@ const AUDITED_TRANSACTION_FIELDS: Array<keyof TransactionInput> = [
   "direction",
   "person",
   "note",
+  "categoryId",
+  "subcategoryId",
   "transactionDate",
   "transactionTime",
   "entryDate",
@@ -67,6 +75,45 @@ const accountFromDb = (account: {
   icon: account.icon,
 });
 
+const categoryFromDb = (category: {
+  id: string;
+  type: string;
+  name: string;
+  parentId: string | null;
+  isSystem: boolean;
+  sortOrder: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}): TransactionCategory => ({
+  id: category.id,
+  type: category.type as TransactionType,
+  name: category.name,
+  parentId: category.parentId,
+  isSystem: category.isSystem,
+  sortOrder: category.sortOrder,
+  createdAt: category.createdAt?.toISOString(),
+  updatedAt: category.updatedAt?.toISOString(),
+});
+
+const categorySummaryFromDb = (
+  category?: {
+    id: string;
+    type: string;
+    name: string;
+    parentId: string | null;
+    isSystem: boolean;
+  } | null,
+): TransactionCategorySummary | null =>
+  category
+    ? {
+        id: category.id,
+        type: category.type as TransactionType,
+        name: category.name,
+        parentId: category.parentId,
+        isSystem: category.isSystem,
+      }
+    : null;
+
 const transactionFromDb = (transaction: {
   id: string;
   type: string;
@@ -77,6 +124,22 @@ const transactionFromDb = (transaction: {
   direction: string | null;
   person: string | null;
   note: string | null;
+  categoryId: string | null;
+  subcategoryId: string | null;
+  category?: {
+    id: string;
+    type: string;
+    name: string;
+    parentId: string | null;
+    isSystem: boolean;
+  } | null;
+  subcategory?: {
+    id: string;
+    type: string;
+    name: string;
+    parentId: string | null;
+    isSystem: boolean;
+  } | null;
   transactionDate: Date;
   entryDate: Date;
   accountBalances: Prisma.JsonValue | null;
@@ -91,6 +154,10 @@ const transactionFromDb = (transaction: {
   direction: transaction.direction as MoneyTransaction["direction"],
   person: transaction.person,
   note: transaction.note,
+  categoryId: transaction.categoryId,
+  subcategoryId: transaction.subcategoryId,
+  category: categorySummaryFromDb(transaction.category),
+  subcategory: categorySummaryFromDb(transaction.subcategory),
   transactionDate: toDateInputValue(transaction.transactionDate),
   transactionTime: toTimeInputValue(transaction.transactionDate),
   entryDate: toDateInputValue(transaction.entryDate),
@@ -108,7 +175,12 @@ const normalizeTransactionInput = (transaction: TransactionInput) => ({
   direction: transaction.direction || null,
   person: transaction.person || null,
   note: transaction.note || null,
-  transactionDate: toDate(transaction.transactionDate, transaction.transactionTime),
+  categoryId: transaction.categoryId || null,
+  subcategoryId: transaction.subcategoryId || null,
+  transactionDate: toDate(
+    transaction.transactionDate,
+    transaction.transactionTime,
+  ),
   entryDate: toDate(transaction.entryDate, transaction.entryTime),
 });
 
@@ -121,6 +193,8 @@ const dbTransactionToInput = (transaction: DbTransaction): TransactionInput => (
   direction: transaction.direction as MoneyTransaction["direction"],
   person: transaction.person,
   note: transaction.note,
+  categoryId: transaction.categoryId,
+  subcategoryId: transaction.subcategoryId,
   transactionDate: toDateInputValue(transaction.transactionDate),
   transactionTime: toTimeInputValue(transaction.transactionDate),
   entryDate: toDateInputValue(transaction.entryDate),
@@ -168,6 +242,118 @@ const getChangedFields = (
   });
 
 const trimField = (value?: string | null) => value?.trim() || "";
+
+async function ensureFallbackCategories(
+  client: PrismaClientOrTransaction,
+  userId: string,
+) {
+  await Promise.all(
+    SUPPORTED_TRANSACTION_TYPES.map(async (type, index) => {
+      const existing = await client.transactionCategory.findFirst({
+        where: {
+          userId,
+          type,
+          name: FALLBACK_CATEGORY_NAME,
+          parentId: null,
+        },
+      });
+
+      if (existing) {
+        await client.transactionCategory.update({
+          where: { id: existing.id },
+          data: { isSystem: true },
+        });
+        return;
+      }
+
+      await client.transactionCategory.create({
+        data: {
+          userId,
+          type,
+          name: FALLBACK_CATEGORY_NAME,
+          isSystem: true,
+          sortOrder: index,
+        },
+      });
+    }),
+  );
+}
+
+async function getFallbackCategory(
+  client: PrismaClientOrTransaction,
+  userId: string,
+  type: TransactionType,
+) {
+  await ensureFallbackCategories(client, userId);
+  return client.transactionCategory.findFirstOrThrow({
+    where: {
+      userId,
+      type,
+      name: FALLBACK_CATEGORY_NAME,
+      parentId: null,
+      isSystem: true,
+    },
+  });
+}
+
+async function backfillMissingTransactionCategories(
+  client: PrismaClientOrTransaction,
+  userId: string,
+) {
+  await ensureFallbackCategories(client, userId);
+  await Promise.all(
+    SUPPORTED_TRANSACTION_TYPES.map(async (type) => {
+      const fallback = await getFallbackCategory(client, userId, type);
+      await client.transaction.updateMany({
+        where: { userId, type, categoryId: null },
+        data: { categoryId: fallback.id },
+      });
+    }),
+  );
+}
+
+async function validateTransactionCategoryOwnership(
+  client: PrismaClientOrTransaction,
+  userId: string,
+  transaction: TransactionInput,
+) {
+  const categoryId = trimField(transaction.categoryId);
+  const subcategoryId = trimField(transaction.subcategoryId);
+
+  if (!categoryId) {
+    throw new Error("Category is required");
+  }
+
+  const category = await client.transactionCategory.findFirst({
+    where: {
+      id: categoryId,
+      userId,
+      type: transaction.type,
+      parentId: null,
+    },
+  });
+
+  if (!category) {
+    throw new Error("Category is not valid for this transaction");
+  }
+
+  if (!subcategoryId) {
+    return;
+  }
+
+  const subcategory = await client.transactionCategory.findFirst({
+    where: {
+      id: subcategoryId,
+      userId,
+      type: transaction.type,
+      parentId: category.id,
+    },
+  });
+
+  if (!subcategory) {
+    throw new Error("Subcategory is not valid for this transaction");
+  }
+}
 
 const validateTransactionInput = (transaction: TransactionInput) => {
   const amount = toAmount(transaction.amount);
@@ -233,6 +419,133 @@ export async function ensureDefaultAccounts(userId: string) {
   }
 }
 
+export async function listCategories(userId: string) {
+  await ensureFallbackCategories(prisma, userId);
+  const categories = await prisma.transactionCategory.findMany({
+    where: { userId },
+    orderBy: [
+      { type: "asc" },
+      { parentId: "asc" },
+      { sortOrder: "asc" },
+      { name: "asc" },
+    ],
+  });
+  return categories.map(categoryFromDb);
+}
+
+export async function createCategory(
+  userId: string,
+  category: TransactionCategoryInput,
+) {
+  if (!trimField(category.name)) {
+    throw new Error("Category name is required");
+  }
+
+  if (!SUPPORTED_TRANSACTION_TYPES.includes(category.type)) {
+    throw new Error("Unsupported transaction type");
+  }
+
+  if (category.parentId) {
+    const parent = await prisma.transactionCategory.findFirst({
+      where: {
+        id: category.parentId,
+        userId,
+        type: category.type,
+        parentId: null,
+      },
+    });
+    if (!parent) {
+      throw new Error("Parent category is not valid");
+    }
+  }
+
+  const created = await prisma.transactionCategory.create({
+    data: {
+      userId,
+      type: category.type,
+      name: category.name.trim(),
+      parentId: category.parentId || null,
+      sortOrder: category.sortOrder ?? 0,
+    },
+  });
+
+  return categoryFromDb(created);
+}
+
+export async function updateCategory(
+  userId: string,
+  id: string,
+  updates: Partial<TransactionCategoryInput>,
+) {
+  const existing = await prisma.transactionCategory.findFirstOrThrow({
+    where: { id, userId },
+  });
+  const nextType = updates.type ?? (existing.type as TransactionType);
+  const nextParentId =
+    updates.parentId !== undefined
+      ? updates.parentId || null
+      : existing.parentId;
+
+  if (nextParentId) {
+    const parent = await prisma.transactionCategory.findFirst({
+      where: {
+        id: nextParentId,
+        userId,
+        type: nextType,
+        parentId: null,
+      },
+    });
+    if (!parent || parent.id === id) {
+      throw new Error("Parent category is not valid");
+    }
+  }
+
+  const updated = await prisma.transactionCategory.update({
+    where: { id },
+    data: {
+      ...(updates.type !== undefined && { type: updates.type }),
+      ...(updates.name !== undefined && { name: updates.name.trim() }),
+      ...(updates.parentId !== undefined && {
+        parentId: updates.parentId || null,
+      }),
+      ...(updates.sortOrder !== undefined && { sortOrder: updates.sortOrder }),
+    },
+  });
+
+  return categoryFromDb(updated);
+}
+
+export async function deleteCategory(userId: string, id: string) {
+  const category = await prisma.transactionCategory.findFirstOrThrow({
+    where: { id, userId },
+  });
+
+  if (category.isSystem) {
+    throw new Error("System categories cannot be deleted");
+  }
+
+  const [childCount, transactionCount] = await Promise.all([
+    prisma.transactionCategory.count({ where: { parentId: id, userId } }),
+    prisma.transaction.count({
+      where: {
+        userId,
+        OR: [{ categoryId: id }, { subcategoryId: id }],
+      },
+    }),
+  ]);
+
+  if (childCount > 0) {
+    throw new Error("Cannot delete a category that has subcategories");
+  }
+
+  if (transactionCount > 0) {
+    throw new Error("Cannot delete a category that has transactions");
+  }
+
+  await prisma.transactionCategory.delete({ where: { id } });
+  return id;
+}
+
 const listAccountsFromDb = async (
   client: PrismaClientOrTransaction,
   userId: string,
@@ -246,6 +559,7 @@ const listAccountsFromDb = async (
 
 export async function listAccounts(userId: string) {
   await ensureDefaultAccounts(userId);
+  await ensureFallbackCategories(prisma, userId);
   return listAccountsFromDb(prisma, userId);
 }
 
@@ -255,6 +569,7 @@ const listTransactionsFromDb = async (
 ) => {
   const transactions = await client.transaction.findMany({
     where: { userId },
+    include: { category: true, subcategory: true },
     orderBy: [{ transactionDate: "asc" }, { createdAt: "asc" }],
   });
 
@@ -262,6 +577,7 @@ const listTransactionsFromDb = async (
 };
 
 export async function listTransactions(userId: string) {
+  await backfillMissingTransactionCategories(prisma, userId);
   return listTransactionsFromDb(prisma, userId);
 }
 
@@ -328,6 +644,8 @@ export async function createTransaction(
 
   const refreshed = await prisma.$transaction(
     async (tx) => {
+      await ensureFallbackCategories(tx, userId);
+      await validateTransactionCategoryOwnership(tx, userId, transaction);
       const created = await tx.transaction.create({
         data: {
           ...normalizeTransactionInput(transaction),
@@ -337,6 +655,7 @@ export async function createTransaction(
       await rebuildBalances(tx, userId);
       return tx.transaction.findUniqueOrThrow({
         where: { id: created.id },
+        include: { category: true, subcategory: true },
       });
     },
     MONEY_TRANSACTION_OPTIONS,
@@ -361,6 +680,7 @@ export async function updateTransaction(
         ...transaction,
       };
       validateTransactionInput(nextTransaction);
+      await validateTransactionCategoryOwnership(tx, userId, nextTransaction);
 
       const updatedTransaction = await tx.transaction.update({
         where: { id },
@@ -383,6 +703,12 @@ export async function updateTransaction(
             person: transaction.person || null,
           }),
           ...(transaction.note !== undefined && { note: transaction.note || null }),
+          ...(transaction.categoryId !== undefined && {
+            categoryId: transaction.categoryId || null,
+          }),
+          ...(transaction.subcategoryId !== undefined && {
+            subcategoryId: transaction.subcategoryId || null,
+          }),
           ...((transaction.transactionDate !== undefined ||
             transaction.transactionTime !== undefined) && {
             transactionDate: toDate(
@@ -411,7 +737,10 @@ export async function updateTransaction(
       });
 
       await rebuildBalances(tx, userId);
-      return updatedTransaction;
+      return tx.transaction.findUniqueOrThrow({
+        where: { id: updatedTransaction.id },
+        include: { category: true, subcategory: true },
+      });
     },
     MONEY_TRANSACTION_OPTIONS,
   );

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type {
   AccountInput,
   PersonDirection,
+  TransactionCategoryInput,
   TransactionInput,
   TransactionType,
 } from "@/types/money";
@@ -142,6 +143,41 @@ export const validateAccountPayload = (
   return account;
 };
 
+export const validateCategoryPayload = (
+  payload: unknown,
+  mode: "create" | "update",
+): Partial<TransactionCategoryInput> => {
+  if (!isRecord(payload)) {
+    throw new ValidationError("Request body must be an object");
+  }
+
+  const category: Partial<TransactionCategoryInput> = {};
+  const type = getTransactionType(payload, mode === "create");
+  const name = getString(payload, "name", mode === "create");
+  const parentId = getString(payload, "parentId");
+
+  if (type !== undefined) category.type = type;
+  if (name !== undefined) category.name = name;
+  if (parentId !== undefined) category.parentId = parentId;
+  if (mode === "update" && payload.parentId !== undefined && parentId === undefined) {
+    category.parentId = null;
+  }
+
+  if (payload.sortOrder !== undefined) {
+    const sortOrder = Number(payload.sortOrder);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+      throw new ValidationError("sortOrder must be a positive integer");
+    }
+    category.sortOrder = sortOrder;
+  }
+
+  if (mode === "update" && Object.keys(category).length === 0) {
+    throw new ValidationError("At least one category field is required");
+  }
+
+  return category;
+};
+
 export const validateTransactionPayload = (
   payload: unknown,
   mode: "create" | "update",
@@ -169,6 +205,8 @@ export const validateTransactionPayload = (
   const direction = getPersonDirection(payload);
   const person = getString(payload, "person");
   const note = getString(payload, "note");
+  const categoryId = getString(payload, "categoryId", requireFull);
+  const subcategoryId = getString(payload, "subcategoryId");
   const transactionDate = getString(payload, "transactionDate", requireFull);
   const transactionTime = getString(payload, "transactionTime");
   const entryDate = getString(payload, "entryDate", requireFull);
@@ -182,6 +220,15 @@ export const validateTransactionPayload = (
   if (note !== undefined) transaction.note = note;
   if (mode === "update" && payload.note !== undefined && note === undefined) {
     transaction.note = "";
+  }
+  if (categoryId !== undefined) transaction.categoryId = categoryId;
+  if (subcategoryId !== undefined) transaction.subcategoryId = subcategoryId;
+  if (
+    mode === "update" &&
+    payload.subcategoryId !== undefined &&
+    subcategoryId === undefined
+  ) {
+    transaction.subcategoryId = "";
   }
   if (transactionDate !== undefined) transaction.transactionDate = transactionDate;
   if (transactionTime !== undefined) transaction.transactionTime = transactionTime;
@@ -248,6 +295,14 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
       "Transfer from and to accounts must be different",
       "Person name is required",
       "Person transaction direction must be to or from",
+      "Category is required",
+      "Category is not valid",
+      "Subcategory is not valid",
+      "Category name is required",
+      "Parent category is not valid",
+      "Cannot delete a category that has transactions",
+      "Cannot delete a category that has subcategories",
+      "System categories cannot be deleted",
       "The Cash account cannot be deleted.",
       "Cannot delete account that has transactions",
     ];

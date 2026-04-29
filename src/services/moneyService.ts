@@ -2,6 +2,8 @@ import type {
   Account,
   AccountInput,
   MoneyTransaction,
+  TransactionCategory,
+  TransactionCategoryInput,
   TransactionEditHistory,
   TransactionInput,
 } from "@/types/money";
@@ -33,6 +35,9 @@ export const fetchTransactions = async () =>
 
 export const fetchAccounts = async () => requestJson<Account[]>("/api/accounts");
 
+export const fetchCategories = async () =>
+  requestJson<TransactionCategory[]>("/api/categories");
+
 export const addTransaction = async (transaction: TransactionInput) =>
   requestJson<MoneyTransaction>("/api/transactions", {
     method: "POST",
@@ -53,6 +58,28 @@ export const fetchTransactionEditHistory = async (id: string) =>
 
 export const deleteTransaction = async (id: string) => {
   await requestJson<{ id: string }>(`/api/transactions/${id}`, {
+    method: "DELETE",
+  });
+  return id;
+};
+
+export const addCategory = async (category: TransactionCategoryInput) =>
+  requestJson<TransactionCategory>("/api/categories", {
+    method: "POST",
+    body: JSON.stringify(category),
+  });
+
+export const updateCategory = async (
+  id: string,
+  updates: Partial<TransactionCategoryInput>,
+) =>
+  requestJson<TransactionCategory>(`/api/categories/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+
+export const deleteCategory = async (id: string) => {
+  await requestJson<{ id: string }>(`/api/categories/${id}`, {
     method: "DELETE",
   });
   return id;

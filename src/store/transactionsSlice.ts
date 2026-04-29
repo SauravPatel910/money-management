@@ -5,6 +5,8 @@ import type {
   AccountInput,
   MoneyTransaction,
   Summary,
+  TransactionCategory,
+  TransactionCategoryInput,
   TransactionEditHistory,
   TransactionInput,
 } from "../types/money";
@@ -12,12 +14,16 @@ import {
   fetchTransactions,
   fetchAccounts,
   addTransaction,
+  fetchCategories,
   fetchTransactionEditHistory,
   updateTransaction,
   deleteTransaction,
   addAccount,
   updateAccount,
   deleteAccount,
+  addCategory,
+  updateCategory,
+  deleteCategory,
 } from "../services/moneyService";
 import {
   calculateSummary,
@@ -30,30 +36,37 @@ type RequestStatus = "idle" | "loading" | "succeeded" | "failed";
 type TransactionsState = {
   transactions: MoneyTransaction[];
   accounts: Account[];
+  categories: TransactionCategory[];
   sortOrder: SortOrder;
   summary: Summary;
   transactionsStatus: RequestStatus;
   transactionsError: string | null;
   accountsStatus: RequestStatus;
   accountsError: string | null;
+  categoriesStatus: RequestStatus;
+  categoriesError: string | null;
   editHistoryByTransactionId: Record<string, TransactionEditHistory[]>;
   editHistoryStatusByTransactionId: Record<string, RequestStatus>;
   editHistoryErrorByTransactionId: Record<string, string | null>;
 };
 
 type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
+type UpdateCategoryPayload = { id: string } & Partial<TransactionCategoryInput>;
 type FreshDataPayload = {
   processedTransactions: MoneyTransaction[];
   updatedAccounts: Account[];
+  updatedCategories: TransactionCategory[];
 };
 
 const fetchFreshMoneyData = async (): Promise<FreshDataPayload> => {
-  const [processedTransactions, updatedAccounts] = await Promise.all([
+  const [processedTransactions, updatedAccounts, updatedCategories] =
+    await Promise.all([
     fetchTransactions(),
     fetchAccounts(),
+    fetchCategories(),
   ]);
 
-  return { processedTransactions, updatedAccounts };
+  return { processedTransactions, updatedAccounts, updatedCategories };
 };
 
 // Create async thunks for server-backed operations
@@ -76,6 +89,13 @@ export const addTransactionThunk = createAsyncThunk(
   async (transaction: TransactionInput) => {
     await addTransaction(transaction);
     return fetchFreshMoneyData();
+  },
+);
+
+export const fetchCategoriesThunk = createAsyncThunk(
+  "transactions/fetchCategories",
+  async () => {
+    return await fetchCategories();
   },
 );
 
@@ -140,15 +160,42 @@ export const deleteAccountThunk = createAsyncThunk(
   },
 );
 
+export const addCategoryThunk = createAsyncThunk(
+  "transactions/addCategory",
+  async (category: TransactionCategoryInput) => {
+    await addCategory(category);
+    return fetchFreshMoneyData();
+  },
+);
+
+export const editCategoryThunk = createAsyncThunk(
+  "transactions/editCategory",
+  async ({ id, ...updates }: UpdateCategoryPayload) => {
+    await updateCategory(id, updates);
+    return fetchFreshMoneyData();
+  },
+);
+
+export const deleteCategoryThunk = createAsyncThunk(
+  "transactions/deleteCategory",
+  async (id: string) => {
+    await deleteCategory(id);
+    return fetchFreshMoneyData();
+  },
+);
+
 const initialState: TransactionsState = {
   transactions: [],
   accounts: [],
+  categories: [],
   sortOrder: "newest",
   summary: { totalIncome: 0, totalExpense: 0 },
   transactionsStatus: "idle",
   transactionsError: null,
   accountsStatus: "idle",
   accountsError: null,
+  categoriesStatus: "idle",
+  categoriesError: null,
   editHistoryByTransactionId: {},
   editHistoryStatusByTransactionId: {},
   editHistoryErrorByTransactionId: {},
@@ -171,10 +218,13 @@ const applyFreshMoneyData = (
 ) => {
   updateTransactions(state, payload.processedTransactions);
   state.accounts = payload.updatedAccounts;
+  state.categories = payload.updatedCategories;
   state.transactionsStatus = "succeeded";
   state.transactionsError = null;
   state.accountsStatus = "succeeded";
   state.accountsError = null;
+  state.categoriesStatus = "succeeded";
+  state.categoriesError = null;
 };
 
 export const transactionsSlice = createSlice({
@@ -216,6 +266,21 @@ export const transactionsSlice = createSlice({
       .addCase(fetchAccountsThunk.rejected, (state, action) => {
         state.accountsStatus = "failed";
         state.accountsError = action.error.message ?? null;
+      })
+
+      // Fetch Categories
+      .addCase(fetchCategoriesThunk.pending, (state) => {
+        state.categoriesStatus = "loading";
+        state.categoriesError = null;
+      })
+      .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
+        state.categoriesStatus = "succeeded";
+        state.categoriesError = null;
+        state.categories = action.payload;
+      })
+      .addCase(fetchCategoriesThunk.rejected, (state, action) => {
+        state.categoriesStatus = "failed";
+        state.categoriesError = action.error.message ?? null;
       })
 
       // Add Transaction
@@ -287,6 +352,26 @@ export const transactionsSlice = createSlice({
       })
       .addCase(deleteAccountThunk.rejected, (state, action) => {
         state.accountsError = action.error.message ?? null;
+      })
+
+      // Categories
+      .addCase(addCategoryThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(addCategoryThunk.rejected, (state, action) => {
+        state.categoriesError = action.error.message ?? null;
+      })
+      .addCase(editCategoryThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(editCategoryThunk.rejected, (state, action) => {
+        state.categoriesError = action.error.message ?? null;
+      })
+      .addCase(deleteCategoryThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(deleteCategoryThunk.rejected, (state, action) => {
+        state.categoriesError = action.error.message ?? null;
       });
   },
 });
@@ -296,6 +381,8 @@ export const { clearMoneyData, toggleSortOrder } = transactionsSlice.actions;
 export const selectTransactions = (state: RootState) =>
   state.transactions.transactions;
 export const selectAccounts = (state: RootState) => state.transactions.accounts;
+export const selectCategories = (state: RootState) =>
+  state.transactions.categories;
 export const selectAccountById = (id: string) => (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === id);
 export const selectCashBalance = (state: RootState) =>
@@ -320,6 +407,10 @@ export const selectAccountsStatus = (state: RootState) =>
   state.transactions.accountsStatus;
 export const selectAccountsError = (state: RootState) =>
   state.transactions.accountsError;
+export const selectCategoriesStatus = (state: RootState) =>
+  state.transactions.categoriesStatus;
+export const selectCategoriesError = (state: RootState) =>
+  state.transactions.categoriesError;
 export const selectTransactionEditHistory =
   (transactionId: string) => (state: RootState) =>
     state.transactions.editHistoryByTransactionId[transactionId] ?? [];

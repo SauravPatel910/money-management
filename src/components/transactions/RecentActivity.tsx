@@ -1,6 +1,9 @@
 import { memo } from "react";
 import { useAppSelector } from "../../config/reduxStore";
-import { selectAccounts } from "../../store/transactionsSlice";
+import {
+  selectAccounts,
+  selectCategories,
+} from "../../store/transactionsSlice";
 import type { MoneyTransaction } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
 
@@ -14,12 +17,15 @@ type RecentActivityProps = {
 
 const RecentActivity = ({ transactions, formatDate }: RecentActivityProps) => {
   const accounts = useAppSelector(selectAccounts);
+  const categories = useAppSelector(selectCategories);
 
   // Get account name from ID
   const getAccountName: GetAccountName = (accountId) => {
     const account = accounts.find((acc) => acc.id === accountId);
     return account ? account.name : accountId;
   };
+  const getCategoryName = (categoryId?: string | null) =>
+    categories.find((category) => category.id === categoryId)?.name || "";
 
   // Get the 3 most recent transactions
   const recentTransactions = transactions.slice(-8).reverse();
@@ -58,6 +64,7 @@ const RecentActivity = ({ transactions, formatDate }: RecentActivityProps) => {
               transaction={transaction}
               formatDate={formatDate}
               getAccountName={getAccountName}
+              getCategoryName={getCategoryName}
             />
           ))}
           {/* <div className="pt-4 text-center">
@@ -155,10 +162,17 @@ type ActivityItemProps = {
   transaction: MoneyTransaction;
   formatDate: FormatDate;
   getAccountName: GetAccountName;
+  getCategoryName: (categoryId?: string | null) => string;
 };
 
 const ActivityItem = memo(
-  ({ transaction, formatDate, getAccountName }: ActivityItemProps) => {
+  ({
+    transaction,
+    formatDate,
+    getAccountName,
+    getCategoryName,
+  }: ActivityItemProps) => {
+    const categoryName = getCategoryName(transaction.categoryId);
     return (
       <div
         className={`flex transform items-center justify-between rounded-xl p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${getActivityItemStyles(
@@ -218,6 +232,11 @@ const ActivityItem = memo(
             {transaction.note && (
               <div className="mt-0.5 max-w-37.5 truncate text-xs text-gray-500">
                 {transaction.note}
+              </div>
+            )}
+            {categoryName && (
+              <div className="mt-0.5 text-xs font-medium text-primary-600">
+                {categoryName}
               </div>
             )}
           </div>

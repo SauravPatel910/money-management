@@ -73,6 +73,8 @@ export const useTransactionForm = <TForm extends TransactionFormState>({
           newForm.person = newForm.person || "";
         }
 
+        delete newForm.categoryId;
+        delete newForm.subcategoryId;
         return newForm;
       });
     },
@@ -88,6 +90,8 @@ export const useTransactionForm = <TForm extends TransactionFormState>({
         nextForm.to = prevForm.from;
       } else if (name === "to" && value === prevForm.from) {
         nextForm.from = prevForm.to;
+      } else if (name === "categoryId") {
+        nextForm.subcategoryId = "";
       }
 
       return nextForm;

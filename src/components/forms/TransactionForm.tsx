@@ -7,7 +7,10 @@ import type {
   SubmitEventHandler,
 } from "react";
 import { useAppSelector } from "../../config/reduxStore";
-import { selectAccounts } from "../../store/transactionsSlice";
+import {
+  selectAccounts,
+  selectCategories,
+} from "../../store/transactionsSlice";
 import Input from "./Input";
 import Select from "./Select";
 import type { SelectOption } from "./Select";
@@ -68,6 +71,7 @@ const TransactionForm = ({
   hiddenFields = [],
 }: TransactionFormProps) => {
   const accounts = useAppSelector(selectAccounts);
+  const categories = useAppSelector(selectCategories);
 
   // Extract account options for select fields using useMemo
   const accountOptions = useMemo(
@@ -84,6 +88,17 @@ const TransactionForm = ({
     // Sort account options alphabetically by name while preserving account ids as values
     const accountOpts = [...accountOptions]
       .sort((a, b) => a.label.localeCompare(b.label));
+    const categoryOptions = categories
+      .filter((category) => category.type === type && !category.parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+      .map((category) => ({ value: category.id, label: category.name }));
+    const subcategoryOptions = categories
+      .filter(
+        (category) =>
+          category.type === type && category.parentId === form.categoryId,
+      )
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+      .map((category) => ({ value: category.id, label: category.name }));
     const defaultFromAccount = form.from || accountOpts[0]?.value || "";
     const defaultToAccount =
       accountOpts.find((opt) => opt.value !== defaultFromAccount)?.value || "";
@@ -121,6 +136,19 @@ const TransactionForm = ({
         label: "Entry Time",
         type: "time",
         required: true,
+      },
+      categoryId: {
+        component: Select,
+        label: "Category",
+        options: categoryOptions,
+        placeholder: "Select category",
+        required: true,
+      },
+      subcategoryId: {
+        component: Select,
+        label: "Subcategory (Optional)",
+        options: subcategoryOptions,
+        placeholder: "No subcategory",
       },
 
       // Conditional fields based on transaction type
@@ -217,6 +245,7 @@ const TransactionForm = ({
   }, [
     form,
     accountOptions,
+    categories,
     handleInputChange,
     handleSelectChange,
     hiddenFields,
