@@ -10,6 +10,7 @@ import type {
 } from "@/types/money";
 import { toAmount } from "@/lib/moneyCalculations";
 import { UnauthorizedError } from "@/server/authSession";
+import { FeatureDisabledError } from "@/server/featureRepository";
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -320,6 +321,10 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
     return jsonError(error.message, 401);
   }
 
+  if (error instanceof FeatureDisabledError) {
+    return jsonError(error.message, 403);
+  }
+
   if (error instanceof ValidationError) {
     return jsonError(error.message, 400);
   }
@@ -358,6 +363,7 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
       "Budget limit must be greater than 0",
       "Budget alert threshold must be between 1 and 100",
       "A budget already exists",
+      "Feature key is not supported",
       "Parent category is not valid",
       "Cannot delete a category that has transactions",
       "Cannot delete a category that has subcategories",

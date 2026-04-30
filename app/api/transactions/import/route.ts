@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { importTransactions } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
 import {
+  FeatureDisabledError,
+  isFeatureEnabled,
+} from "@/server/featureRepository";
+import {
   handleApiError,
   validateTransactionPayload,
   ValidationError,
@@ -10,6 +14,14 @@ import type { TransactionInput } from "@/types/money";
 
 export async function POST(request: Request) {
   try {
+    const importEnabled =
+      (await isFeatureEnabled("spreadsheetImport")) ||
+      (await isFeatureEnabled("bankStatementOcr"));
+
+    if (!importEnabled) {
+      throw new FeatureDisabledError("Transaction import is disabled");
+    }
+
     const userId = await requireUserId();
     const payload = await request.json();
 

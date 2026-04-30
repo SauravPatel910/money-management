@@ -1,3 +1,5 @@
+import type { FeatureKey } from "@/lib/featureFlags";
+
 type NavigationPage =
   | "dashboard"
   | "accounts"
@@ -9,17 +11,22 @@ type NavigationPage =
 export type NavigationLink = {
   to: string;
   text: string;
+  feature: FeatureKey;
   key?: string;
 };
 
 export const getNavigationLinks = (currentPage: NavigationPage) => {
   const allLinks: Record<NavigationPage, NavigationLink> = {
-    dashboard: { to: "/", text: "Dashboard" },
-    accounts: { to: "/accounts", text: "Manage Accounts" },
-    categories: { to: "/categories", text: "Categories" },
-    transactions: { to: "/transactions", text: "Transaction History" },
-    reports: { to: "/reports", text: "Reports" },
-    budgets: { to: "/budgets", text: "Budgets" },
+    dashboard: { to: "/", text: "Dashboard", feature: "dashboard" },
+    accounts: { to: "/accounts", text: "Manage Accounts", feature: "accounts" },
+    categories: { to: "/categories", text: "Categories", feature: "categories" },
+    transactions: {
+      to: "/transactions",
+      text: "Transaction History",
+      feature: "transactions",
+    },
+    reports: { to: "/reports", text: "Reports", feature: "reports" },
+    budgets: { to: "/budgets", text: "Budgets", feature: "budgets" },
   };
 
   // Return all links except the current page

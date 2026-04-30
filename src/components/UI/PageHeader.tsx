@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { NavigationLink } from "../common/getNavigationLinks";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 type PageHeaderProps = {
   title: string;
@@ -7,11 +10,14 @@ type PageHeaderProps = {
 };
 
 const PageHeader = ({ title, links = [] }: PageHeaderProps) => {
+  const { isEnabled } = useFeatureFlags();
+  const visibleLinks = links.filter((link) => isEnabled(link.feature));
+
   return (
     <div className="mb-4 flex items-center justify-between">
       <h1 className="text-2xl font-bold text-primary-800">{title}</h1>
       <div className="flex gap-2">
-        {links.map(({ to, text, key }) => (
+        {visibleLinks.map(({ to, text, key }) => (
           <Link
             key={key || to}
             href={to}

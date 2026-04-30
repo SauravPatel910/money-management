@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAccount, listAccounts } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
+import { requireFeatureEnabled } from "@/server/featureRepository";
 import {
   handleApiError,
   validateAccountPayload,
@@ -18,6 +19,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireFeatureEnabled("accounts");
     const userId = await requireUserId();
     const account = validateAccountPayload(
       await request.json(),

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteBudget, updateBudget } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
+import { requireFeatureEnabled } from "@/server/featureRepository";
 import {
   handleApiError,
   validateBudgetPayload,
@@ -13,6 +14,7 @@ type RouteContext = {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
+    await requireFeatureEnabled("budgets");
     const userId = await requireUserId();
     const { id } = await context.params;
     const updates = validateBudgetPayload(
@@ -27,6 +29,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
+    await requireFeatureEnabled("budgets");
     const userId = await requireUserId();
     const { id } = await context.params;
     return NextResponse.json({ id: await deleteBudget(userId, id) });

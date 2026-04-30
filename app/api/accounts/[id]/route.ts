@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteAccount, updateAccount } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
+import { requireFeatureEnabled } from "@/server/featureRepository";
 import { handleApiError, validateAccountPayload } from "../../_utils";
 
 type RouteContext = {
@@ -9,6 +10,7 @@ type RouteContext = {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
+    await requireFeatureEnabled("accounts");
     const userId = await requireUserId();
     const { id } = await params;
     const updates = validateAccountPayload(await request.json(), "update");
@@ -20,6 +22,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
+    await requireFeatureEnabled("accounts");
     const userId = await requireUserId();
     const { id } = await params;
     return NextResponse.json({ id: await deleteAccount(userId, id) });

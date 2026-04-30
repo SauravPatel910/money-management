@@ -17,6 +17,16 @@ import {
   getBudgetStatus,
   summarizeBudgetProgress,
 } from "./budgetAnalytics.ts";
+import {
+  buildStatementPreviewRows,
+  parseBankStatementText,
+  statementRowToTransactionInput,
+} from "./bankStatementParser.ts";
+import {
+  DEFAULT_FEATURE_FLAGS,
+  featureFlagsToRecord,
+  isFeatureKey,
+} from "./featureFlags.ts";
 import type {
   Account,
   Budget,
@@ -531,4 +541,109 @@ test("budget summary totals limits and alert counts", () => {
     overBudgetCount: 1,
     nearBudgetCount: 1,
   });
+});
+
+test("bank statement parser extracts debit and credit rows", () => {
+  const rows = parseBankStatementText(`
+Date Description Debit Credit Balance
+01/04/2026 UPI PAYMENT TO STORE 125.00 4,875.00
+02/04/2026 SALARY CREDIT CR 50,000.00 54,875.00
+`);
+
+  assert.deepEqual(
+    rows.map(({ date, type, amount, description }) => ({
+      date,
+      type,
+      amount,
+      description,
+    })),
+    [
+      {
+        date: "2026-04-01",
+        type: "debit",
+        amount: 125,
+        description: "UPI PAYMENT TO STORE",
+      },
+      {
+        date: "2026-04-02",
+        type: "credit",
+        amount: 50000,
+        description: "SALARY CREDIT CR",
+      },
+    ],
+  );
+});
+
+test("bank statement row converts to transaction input", () => {
+  const [row] = parseBankStatementText(
+    "03-Apr-2026 ATM WITHDRAWAL DR 2,000.00 52,875.00",
+  );
+  const transactionInput = statementRowToTransactionInput({
+    row: {
+      ...row,
+      categoryId: "food",
+      subcategoryId: "dinner",
+    },
+    accountId: "bank",
+  });
+
+  assert.deepEqual(transactionInput, {
+    type: "expense",
+    amount: 2000,
+    account: "bank",
+    note: "ATM WITHDRAWAL DR",
+    categoryId: "food",
+    subcategoryId: "dinner",
+    transactionDate: "2026-04-03",
+    transactionTime: "00:00",
+    entryDate: "2026-04-03",
+    entryTime: "00:00",
+  });
+});
+
+test("bank statement preview reuses duplicate detection", () => {
+  const [row] = parseBankStatementText(
+    "04/04/2026 DINNER PAYMENT DR 125.00 4,750.00",
+  );
+  const preview = buildStatementPreviewRows({
+    rows: [{ ...row, categoryId: "food", subcategoryId: "dinner" }],
+    accountId: "cash",
+    accounts,
+    categories,
+    existingTransactions: [
+      transaction({
+        type: "expense",
+        amount: 125,
+        account: "cash",
+        categoryId: "food",
+        subcategoryId: "dinner",
+        note: "DINNER PAYMENT DR",
+        transactionDate: "2026-04-04",
+        transactionTime: "00:00",
+      }),
+    ],
+  });
+
+  assert.equal(preview[0].status, "duplicate");
+  assert.equal(preview[0].include, false);
+});
+
+test("feature flags default every feature to enabled", () => {
+  assert.equal(DEFAULT_FEATURE_FLAGS.bankStatementOcr, true);
+  assert.equal(DEFAULT_FEATURE_FLAGS.spreadsheetImport, true);
+  assert.equal(DEFAULT_FEATURE_FLAGS.exports, true);
+});
+
+test("feature flags merge persisted values over defaults", () => {
+  const flags = featureFlagsToRecord([
+    { key: "bankStatementOcr", label: "Bank Statement OCR Import", enabled: false },
+  ]);
+
+  assert.equal(flags.bankStatementOcr, false);
+  assert.equal(flags.reports, true);
+});
+
+test("feature flag keys reject unsupported features", () => {
+  assert.equal(isFeatureKey("bankStatementOcr"), true);
+  assert.equal(isFeatureKey("madeUpFeature"), false);
 });

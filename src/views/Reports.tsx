@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { importTransactionsThunk } from "../store/transactionsSlice";
 import BudgetSummary from "../components/budgets/BudgetSummary";
+import BankStatementImport from "../components/transactions/BankStatementImport";
+import FeatureDisabled from "../components/common/FeatureDisabled";
+import FeatureGate from "../components/common/FeatureGate";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import Failed from "../components/UI/Failed";
 import Loading from "../components/UI/Loading";
@@ -247,6 +250,7 @@ export default function Reports() {
   }
 
   return (
+    <FeatureGate feature="reports" fallback={<FeatureDisabled title="Reports disabled" />}>
     <PageLayout
       title="Reports"
       headerLinks={getNavigationLinks("reports")}
@@ -258,6 +262,7 @@ export default function Reports() {
             <h3 className="text-xl font-semibold text-primary-700">
               Report Filters
             </h3>
+            <FeatureGate feature="exports">
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-sm font-medium text-primary-700">
                 File type
@@ -287,6 +292,7 @@ export default function Reports() {
                 Download Summary
               </button>
             </div>
+            </FeatureGate>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -358,11 +364,22 @@ export default function Reports() {
           <Metric title="Rows" value={String(summary.transactionCount)} />
         </section>
 
-        <BudgetSummary
-          budgets={budgets}
-          transactions={transactions}
-          month={filters.dateFrom?.slice(0, 7) || getCurrentBudgetMonth()}
-        />
+        <FeatureGate feature="budgets">
+          <BudgetSummary
+            budgets={budgets}
+            transactions={transactions}
+            month={filters.dateFrom?.slice(0, 7) || getCurrentBudgetMonth()}
+          />
+        </FeatureGate>
+
+        <FeatureGate feature="bankStatementOcr">
+          <BankStatementImport
+            accounts={accounts}
+            categories={categories}
+            transactions={transactions}
+            dispatch={dispatch}
+          />
+        </FeatureGate>
 
         <section className="grid gap-6 lg:grid-cols-2">
           <ReportTable
@@ -389,6 +406,7 @@ export default function Reports() {
           />
         </section>
 
+        <FeatureGate feature="spreadsheetImport">
         <section className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -491,8 +509,10 @@ export default function Reports() {
             </div>
           )}
         </section>
+        </FeatureGate>
       </div>
     </PageLayout>
+    </FeatureGate>
   );
 }
 

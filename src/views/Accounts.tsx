@@ -3,6 +3,8 @@
 import BalanceCard from "../components/accounts/BalanceCard";
 import AccountManager from "../components/accounts/AccountManager";
 import { useAppData } from "../hooks/useAppData";
+import FeatureDisabled from "../components/common/FeatureDisabled";
+import FeatureGate from "../components/common/FeatureGate";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
@@ -25,17 +27,22 @@ function Accounts() {
   }
 
   return (
-    <PageLayout
-      title="Account Management"
-      headerLinks={getNavigationLinks("accounts")}
-      loadingText="Loading account information..."
-      showBalanceCard={true}
-      BalanceCardComponent={BalanceCard}
+    <FeatureGate
+      feature="accounts"
+      fallback={<FeatureDisabled title="Account Management disabled" />}
     >
-      <div className="mt-8">
-        <AccountManager />
-      </div>
-    </PageLayout>
+      <PageLayout
+        title="Account Management"
+        headerLinks={getNavigationLinks("accounts")}
+        loadingText="Loading account information..."
+        showBalanceCard={true}
+        BalanceCardComponent={BalanceCard}
+      >
+        <div className="mt-8">
+          <AccountManager />
+        </div>
+      </PageLayout>
+    </FeatureGate>
   );
 }
 

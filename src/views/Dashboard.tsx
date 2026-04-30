@@ -12,6 +12,8 @@ import TransactionForm from "../components/forms/TransactionForm";
 import DashboardCharts from "../components/dashboard/DashboardCharts";
 import RecentActivity from "../components/transactions/RecentActivity";
 import BudgetSummary from "../components/budgets/BudgetSummary";
+import FeatureDisabled from "../components/common/FeatureDisabled";
+import FeatureGate from "../components/common/FeatureGate";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import { getCurrentBudgetMonth } from "../lib/budgetAnalytics";
 import PageLayout from "../components/UI/PageLayout";
@@ -127,40 +129,48 @@ function Dashboard() {
     );
   }
   return (
+    <FeatureGate feature="dashboard" fallback={<FeatureDisabled title="Dashboard disabled" />}>
     <PageLayout
       title="Dashboard"
       headerLinks={getNavigationLinks("dashboard")}
       loadingText="Loading your finances..."
     >
       <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <div>
-          {formMessage && (
-            <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
-              {formMessage}
-            </div>
-          )}
-          <TransactionForm
-            form={form}
-            handleInputChange={handleInputChange}
-            handleTypeChange={handleTypeChange}
-            handleSelectChange={handleSelectChange}
-            addTransaction={handleAddTransaction}
-            hiddenFields={hiddenAutomaticDateTimeFields}
+        <FeatureGate feature="transactions">
+          <div>
+            {formMessage && (
+              <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+                {formMessage}
+              </div>
+            )}
+            <TransactionForm
+              form={form}
+              handleInputChange={handleInputChange}
+              handleTypeChange={handleTypeChange}
+              handleSelectChange={handleSelectChange}
+              addTransaction={handleAddTransaction}
+              hiddenFields={hiddenAutomaticDateTimeFields}
+            />
+          </div>
+        </FeatureGate>
+
+        <FeatureGate feature="transactions">
+          <RecentActivity transactions={transactions} formatDate={formatDate} />
+        </FeatureGate>
+      </div>
+      <FeatureGate feature="budgets">
+        <div className="mb-8">
+          <BudgetSummary
+            budgets={budgets}
+            transactions={transactions}
+            month={getCurrentBudgetMonth()}
+            compact
           />
         </div>
-
-        <RecentActivity transactions={transactions} formatDate={formatDate} />
-      </div>
-      <div className="mb-8">
-        <BudgetSummary
-          budgets={budgets}
-          transactions={transactions}
-          month={getCurrentBudgetMonth()}
-          compact
-        />
-      </div>
+      </FeatureGate>
       <DashboardCharts transactions={transactions} />
     </PageLayout>
+    </FeatureGate>
   );
 }
 

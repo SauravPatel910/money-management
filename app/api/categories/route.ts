@@ -4,6 +4,7 @@ import {
   listCategories,
 } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
+import { requireFeatureEnabled } from "@/server/featureRepository";
 import {
   handleApiError,
   validateCategoryPayload,
@@ -21,6 +22,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireFeatureEnabled("categories");
     const userId = await requireUserId();
     const category = validateCategoryPayload(
       await request.json(),

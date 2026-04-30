@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createBudget, listBudgets } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
+import { requireFeatureEnabled } from "@/server/featureRepository";
 import {
   handleApiError,
   validateBudgetPayload,
@@ -18,6 +19,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireFeatureEnabled("budgets");
     const userId = await requireUserId();
     const budget = validateBudgetPayload(
       await request.json(),
