@@ -1,6 +1,8 @@
 import type {
   Account,
   AccountInput,
+  Budget,
+  BudgetInput,
   MoneyTransaction,
   TransactionCategory,
   TransactionCategoryInput,
@@ -43,6 +45,8 @@ export const fetchAccounts = async () => requestJson<Account[]>("/api/accounts")
 
 export const fetchCategories = async () =>
   requestJson<TransactionCategory[]>("/api/categories");
+
+export const fetchBudgets = async () => requestJson<Budget[]>("/api/budgets");
 
 export const addTransaction = async (transaction: TransactionInput) =>
   requestJson<MoneyTransaction>("/api/transactions", {
@@ -92,6 +96,25 @@ export const updateCategory = async (
 
 export const deleteCategory = async (id: string) => {
   await requestJson<{ id: string }>(`/api/categories/${id}`, {
+    method: "DELETE",
+  });
+  return id;
+};
+
+export const addBudget = async (budget: BudgetInput) =>
+  requestJson<Budget>("/api/budgets", {
+    method: "POST",
+    body: JSON.stringify(budget),
+  });
+
+export const updateBudget = async (id: string, updates: Partial<BudgetInput>) =>
+  requestJson<Budget>(`/api/budgets/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+
+export const deleteBudget = async (id: string) => {
+  await requestJson<{ id: string }>(`/api/budgets/${id}`, {
     method: "DELETE",
   });
   return id;

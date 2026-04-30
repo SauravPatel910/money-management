@@ -3,6 +3,8 @@ import { prisma } from "@/server/prisma";
 import type {
   Account,
   AccountInput,
+  Budget,
+  BudgetInput,
   MoneyTransaction,
   TransactionCategory,
   TransactionCategoryInput,
@@ -217,6 +219,42 @@ const transactionEditHistoryFromDb = (history: {
   changedFields: history.changedFields as TransactionEditChangedField[],
 });
 
+const budgetFromDb = (budget: {
+  id: string;
+  month: string;
+  categoryId: string;
+  subcategoryId: string | null;
+  limitAmount: Prisma.Decimal;
+  alertThreshold: number;
+  category?: {
+    id: string;
+    type: string;
+    name: string;
+    parentId: string | null;
+    isSystem: boolean;
+  } | null;
+  subcategory?: {
+    id: string;
+    type: string;
+    name: string;
+    parentId: string | null;
+    isSystem: boolean;
+  } | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}): Budget => ({
+  id: budget.id,
+  month: budget.month,
+  categoryId: budget.categoryId,
+  subcategoryId: budget.subcategoryId,
+  limitAmount: budget.limitAmount.toNumber(),
+  alertThreshold: budget.alertThreshold,
+  category: categorySummaryFromDb(budget.category),
+  subcategory: categorySummaryFromDb(budget.subcategory),
+  createdAt: budget.createdAt?.toISOString(),
+  updatedAt: budget.updatedAt?.toISOString(),
+});
+
 const toSnapshotValue = (value: TransactionInput[keyof TransactionInput]) =>
   value ?? null;
 
@@ -242,6 +280,86 @@ const getChangedFields = (
   });
 
 const trimField = (value?: string | null) => value?.trim() || "";
+
+const validateBudgetInput = (budget: Partial<BudgetInput>) => {
+  if (budget.limitAmount !== undefined && toAmount(budget.limitAmount) <= 0) {
+    throw new Error("Budget limit must be greater than 0");
+  }
+
+  if (
+    budget.alertThreshold !== undefined &&
+    (!Number.isInteger(budget.alertThreshold) ||
+      budget.alertThreshold < 1 ||
+      budget.alertThreshold > 100)
+  ) {
+    throw new Error("Budget alert threshold must be between 1 and 100");
+  }
+};
+
+async function validateBudgetCategoryOwnership(
+  client: PrismaClientOrTransaction,
+  userId: string,
+  budget: Partial<BudgetInput>,
+) {
+  const categoryId = trimField(budget.categoryId);
+  const subcategoryId = trimField(budget.subcategoryId);
+
+  if (!categoryId) {
+    throw new Error("Budget category is required");
+  }
+
+  const category = await client.transactionCategory.findFirst({
+    where: {
+      id: categoryId,
+      userId,
+      type: "expense",
+      parentId: null,
+    },
+  });
+
+  if (!category) {
+    throw new Error("Budget category must be an expense category");
+  }
+
+  if (!subcategoryId) {
+    return;
+  }
+
+  const subcategory = await client.transactionCategory.findFirst({
+    where: {
+      id: subcategoryId,
+      userId,
+      type: "expense",
+      parentId: category.id,
+    },
+  });
+
+  if (!subcategory) {
+    throw new Error("Budget subcategory is not valid");
+  }
+}
+
+async function ensureBudgetIsUnique(
+  client: PrismaClientOrTransaction,
+  userId: string,
+  budget: BudgetInput,
+  ignoreId?: string,
+) {
+  const existing = await client.budget.findFirst({
+    where: {
+      userId,
+      month: budget.month,
+      categoryId: budget.categoryId,
+      subcategoryId: budget.subcategoryId || null,
+      ...(ignoreId && { id: { not: ignoreId } }),
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error("A budget already exists for this month and category");
+  }
+}
 
 async function ensureFallbackCategories(
   client: PrismaClientOrTransaction,
@@ -594,6 +712,98 @@ export async function listTransactionEditHistory(
   });
 
   return history.map(transactionEditHistoryFromDb);
+}
+
+export async function listBudgets(userId: string) {
+  await ensureFallbackCategories(prisma, userId);
+  const budgets = await prisma.budget.findMany({
+    where: { userId },
+    include: { category: true, subcategory: true },
+    orderBy: [{ month: "desc" }, { createdAt: "desc" }],
+  });
+
+  return budgets.map(budgetFromDb);
+}
+
+export async function createBudget(userId: string, budget: BudgetInput) {
+  validateBudgetInput(budget);
+  await ensureFallbackCategories(prisma, userId);
+  await validateBudgetCategoryOwnership(prisma, userId, budget);
+  await ensureBudgetIsUnique(prisma, userId, {
+    ...budget,
+    subcategoryId: budget.subcategoryId || null,
+    alertThreshold: budget.alertThreshold ?? 80,
+  });
+
+  const created = await prisma.budget.create({
+    data: {
+      userId,
+      month: budget.month,
+      categoryId: budget.categoryId,
+      subcategoryId: budget.subcategoryId || null,
+      limitAmount: new Prisma.Decimal(toAmount(budget.limitAmount)),
+      alertThreshold: budget.alertThreshold ?? 80,
+    },
+    include: { category: true, subcategory: true },
+  });
+
+  return budgetFromDb(created);
+}
+
+export async function updateBudget(
+  userId: string,
+  id: string,
+  updates: Partial<BudgetInput>,
+) {
+  const existing = await prisma.budget.findFirstOrThrow({
+    where: { id, userId },
+  });
+  const nextBudget: BudgetInput = {
+    month: updates.month ?? existing.month,
+    categoryId: updates.categoryId ?? existing.categoryId,
+    subcategoryId:
+      updates.subcategoryId !== undefined
+        ? updates.subcategoryId
+        : existing.subcategoryId,
+    limitAmount:
+      updates.limitAmount !== undefined
+        ? updates.limitAmount
+        : existing.limitAmount.toNumber(),
+    alertThreshold: updates.alertThreshold ?? existing.alertThreshold,
+  };
+
+  validateBudgetInput(nextBudget);
+  await validateBudgetCategoryOwnership(prisma, userId, nextBudget);
+  await ensureBudgetIsUnique(prisma, userId, nextBudget, id);
+
+  const updated = await prisma.budget.update({
+    where: { id },
+    data: {
+      ...(updates.month !== undefined && { month: updates.month }),
+      ...(updates.categoryId !== undefined && { categoryId: updates.categoryId }),
+      ...(updates.subcategoryId !== undefined && {
+        subcategoryId: updates.subcategoryId || null,
+      }),
+      ...(updates.limitAmount !== undefined && {
+        limitAmount: new Prisma.Decimal(toAmount(updates.limitAmount)),
+      }),
+      ...(updates.alertThreshold !== undefined && {
+        alertThreshold: updates.alertThreshold,
+      }),
+    },
+    include: { category: true, subcategory: true },
+  });
+
+  return budgetFromDb(updated);
+}
+
+export async function deleteBudget(userId: string, id: string) {
+  await prisma.budget.findFirstOrThrow({
+    where: { id, userId },
+    select: { id: true },
+  });
+  await prisma.budget.delete({ where: { id } });
+  return id;
 }
 
 async function rebuildBalances(client: PrismaClientOrTransaction, userId: string) {

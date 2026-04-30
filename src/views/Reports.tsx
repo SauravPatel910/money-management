@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { importTransactionsThunk } from "../store/transactionsSlice";
+import BudgetSummary from "../components/budgets/BudgetSummary";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import Failed from "../components/UI/Failed";
 import Loading from "../components/UI/Loading";
@@ -18,6 +19,7 @@ import {
   reportSummaryToCsv,
   transactionsToCsv,
 } from "../lib/moneyAnalytics";
+import { getCurrentBudgetMonth } from "../lib/budgetAnalytics";
 import {
   exportSummaryWorkbook,
   exportTransactionsWorkbook,
@@ -55,6 +57,7 @@ export default function Reports() {
     transactions,
     accounts,
     categories,
+    budgets,
     dispatch,
     transactionsStatus,
     transactionsError,
@@ -62,6 +65,8 @@ export default function Reports() {
     accountsError,
     categoriesStatus,
     categoriesError,
+    budgetsStatus,
+    budgetsError,
   } = useAppData();
   const [filters, setFilters] = useState<ReportFilters>({ type: "all" });
   const [previewRows, setPreviewRows] = useState<TransactionImportPreviewRow[]>([]);
@@ -218,9 +223,11 @@ export default function Reports() {
     transactionsStatus === "idle" ||
     accountsStatus === "idle" ||
     categoriesStatus === "idle" ||
+    budgetsStatus === "idle" ||
     transactionsStatus === "loading" ||
     accountsStatus === "loading" ||
-    categoriesStatus === "loading"
+    categoriesStatus === "loading" ||
+    budgetsStatus === "loading"
   ) {
     return <Loading text="Loading reports..." />;
   }
@@ -228,11 +235,12 @@ export default function Reports() {
   if (
     transactionsStatus === "failed" ||
     accountsStatus === "failed" ||
-    categoriesStatus === "failed"
+    categoriesStatus === "failed" ||
+    budgetsStatus === "failed"
   ) {
     return (
       <Failed
-        error={transactionsError || accountsError || categoriesError}
+        error={transactionsError || accountsError || categoriesError || budgetsError}
         text="Failed to load reports. Please try again later."
       />
     );
@@ -349,6 +357,12 @@ export default function Reports() {
           <Metric title="Current Balance" value={formatCurrency(summary.totalBalance)} />
           <Metric title="Rows" value={String(summary.transactionCount)} />
         </section>
+
+        <BudgetSummary
+          budgets={budgets}
+          transactions={transactions}
+          month={filters.dateFrom?.slice(0, 7) || getCurrentBudgetMonth()}
+        />
 
         <section className="grid gap-6 lg:grid-cols-2">
           <ReportTable

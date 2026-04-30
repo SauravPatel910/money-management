@@ -18,6 +18,7 @@ model User {
   moneyAccounts MoneyAccount[]
   transactions  Transaction[]
   categories    TransactionCategory[]
+  budgets       Budget[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -129,6 +130,8 @@ model TransactionCategory {
   sortOrder                Int      @default(0) @map("sort_order")
   transactionsAsCategory   Transaction[] @relation("TransactionCategory")
   transactionsAsSubcategory Transaction[] @relation("TransactionSubcategory")
+  budgetsAsCategory        Budget[] @relation("BudgetCategory")
+  budgetsAsSubcategory     Budget[] @relation("BudgetSubcategory")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -137,6 +140,28 @@ model TransactionCategory {
   @@index([parentId])
   @@index([type])
   @@map("transaction_categories")
+}
+
+model Budget {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month          String
+  categoryId     String   @map("category_id")
+  subcategoryId  String?  @map("subcategory_id")
+  limitAmount    Decimal  @map("limit_amount") @db.Decimal(14, 2)
+  alertThreshold Int      @default(80) @map("alert_threshold")
+  category       TransactionCategory @relation("BudgetCategory", fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory    TransactionCategory? @relation("BudgetSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, month, categoryId, subcategoryId])
+  @@index([userId])
+  @@index([month])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@map("budgets")
 }
 
 model TransactionEditHistory {

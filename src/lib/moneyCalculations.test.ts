@@ -12,8 +12,14 @@ import {
   buildTransactionTypeMix,
   rowsToCsv,
 } from "./moneyAnalytics.ts";
+import {
+  buildBudgetProgress,
+  getBudgetStatus,
+  summarizeBudgetProgress,
+} from "./budgetAnalytics.ts";
 import type {
   Account,
+  Budget,
   MoneyTransaction,
   TransactionCategory,
   TransactionInput,
@@ -47,6 +53,45 @@ const categories: TransactionCategory[] = [
     parentId: "food",
     isSystem: false,
     sortOrder: 0,
+  },
+];
+const budgets: Budget[] = [
+  {
+    id: "food-budget",
+    month: "2026-04",
+    categoryId: "food",
+    subcategoryId: null,
+    limitAmount: 1000,
+    alertThreshold: 80,
+    category: {
+      id: "food",
+      type: "expense",
+      name: "Food",
+      parentId: null,
+      isSystem: false,
+    },
+  },
+  {
+    id: "dinner-budget",
+    month: "2026-04",
+    categoryId: "food",
+    subcategoryId: "dinner",
+    limitAmount: 100,
+    alertThreshold: 80,
+    category: {
+      id: "food",
+      type: "expense",
+      name: "Food",
+      parentId: null,
+      isSystem: false,
+    },
+    subcategory: {
+      id: "dinner",
+      type: "expense",
+      name: "Dinner",
+      parentId: "food",
+      isSystem: false,
+    },
   },
 ];
 
@@ -395,4 +440,95 @@ test("duplicate keys normalize note and amount values", () => {
   });
 
   assert.equal(first, second);
+});
+
+test("budget progress filters expense transactions by budget month", () => {
+  const progress = buildBudgetProgress(
+    [budgets[0]],
+    [
+      transaction({
+        type: "expense",
+        amount: 200,
+        account: "cash",
+        categoryId: "food",
+        transactionDate: "2026-04-10",
+      }),
+      transaction({
+        type: "expense",
+        amount: 300,
+        account: "cash",
+        categoryId: "food",
+        transactionDate: "2026-05-10",
+      }),
+      transaction({
+        type: "income",
+        amount: 500,
+        account: "cash",
+        categoryId: "salary",
+        transactionDate: "2026-04-10",
+      }),
+    ],
+  );
+
+  assert.equal(progress[0].spentAmount, 200);
+  assert.equal(progress[0].remainingAmount, 800);
+  assert.equal(progress[0].progressPercent, 20);
+  assert.equal(progress[0].status, "under");
+});
+
+test("budget progress can target a subcategory", () => {
+  const progress = buildBudgetProgress(
+    [budgets[1]],
+    [
+      transaction({
+        type: "expense",
+        amount: 75,
+        account: "cash",
+        categoryId: "food",
+        subcategoryId: "dinner",
+      }),
+      transaction({
+        type: "expense",
+        amount: 50,
+        account: "cash",
+        categoryId: "food",
+      }),
+    ],
+  );
+
+  assert.equal(progress[0].spentAmount, 75);
+  assert.equal(progress[0].status, "under");
+});
+
+test("budget status marks near threshold and over budget", () => {
+  assert.equal(getBudgetStatus(799, 1000, 80), "under");
+  assert.equal(getBudgetStatus(800, 1000, 80), "near");
+  assert.equal(getBudgetStatus(1001, 1000, 80), "over");
+});
+
+test("budget summary totals limits and alert counts", () => {
+  const summary = summarizeBudgetProgress(
+    buildBudgetProgress(budgets, [
+      transaction({
+        type: "expense",
+        amount: 850,
+        account: "cash",
+        categoryId: "food",
+      }),
+      transaction({
+        type: "expense",
+        amount: 125,
+        account: "cash",
+        categoryId: "food",
+        subcategoryId: "dinner",
+      }),
+    ]),
+  );
+
+  assert.deepEqual(summary, {
+    totalLimit: 1100,
+    totalSpent: 1100,
+    overBudgetCount: 1,
+    nearBudgetCount: 1,
+  });
 });

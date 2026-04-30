@@ -7,7 +7,7 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "lint": "eslint .",
     "test": "node --test src/lib/moneyCalculations.test.ts",
     "typecheck": "tsc --noEmit",

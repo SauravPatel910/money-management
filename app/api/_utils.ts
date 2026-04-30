@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import type {
   AccountInput,
+  BudgetInput,
   PersonDirection,
   TransactionCategoryInput,
   TransactionInput,
@@ -178,6 +179,57 @@ export const validateCategoryPayload = (
   return category;
 };
 
+export const validateBudgetPayload = (
+  payload: unknown,
+  mode: "create" | "update",
+): Partial<BudgetInput> => {
+  if (!isRecord(payload)) {
+    throw new ValidationError("Request body must be an object");
+  }
+
+  const budget: Partial<BudgetInput> = {};
+  const month = getString(payload, "month", mode === "create");
+  const categoryId = getString(payload, "categoryId", mode === "create");
+  const subcategoryId = getString(payload, "subcategoryId");
+  const limitAmount = parseAmount(payload.limitAmount, mode === "create");
+
+  if (month !== undefined) {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new ValidationError("month must use YYYY-MM format");
+    }
+    budget.month = month;
+  }
+
+  if (categoryId !== undefined) budget.categoryId = categoryId;
+  if (subcategoryId !== undefined) budget.subcategoryId = subcategoryId;
+  if (
+    mode === "update" &&
+    payload.subcategoryId !== undefined &&
+    subcategoryId === undefined
+  ) {
+    budget.subcategoryId = null;
+  }
+  if (limitAmount !== undefined) budget.limitAmount = limitAmount;
+
+  if (payload.alertThreshold !== undefined) {
+    const alertThreshold = Number(payload.alertThreshold);
+    if (
+      !Number.isInteger(alertThreshold) ||
+      alertThreshold < 1 ||
+      alertThreshold > 100
+    ) {
+      throw new ValidationError("alertThreshold must be between 1 and 100");
+    }
+    budget.alertThreshold = alertThreshold;
+  }
+
+  if (mode === "update" && Object.keys(budget).length === 0) {
+    throw new ValidationError("At least one budget field is required");
+  }
+
+  return budget;
+};
+
 export const validateTransactionPayload = (
   payload: unknown,
   mode: "create" | "update",
@@ -300,6 +352,12 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
       "Subcategory is not valid",
       "Category name is required",
       "At least one transaction is required",
+      "Budget category is required",
+      "Budget category must be an expense category",
+      "Budget subcategory is not valid",
+      "Budget limit must be greater than 0",
+      "Budget alert threshold must be between 1 and 100",
+      "A budget already exists",
       "Parent category is not valid",
       "Cannot delete a category that has transactions",
       "Cannot delete a category that has subcategories",

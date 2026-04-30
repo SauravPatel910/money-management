@@ -88,6 +88,27 @@ export type TransactionCategoryInput = {
   sortOrder?: number;
 };
 
+export type Budget = {
+  id: string;
+  month: string;
+  categoryId: string;
+  subcategoryId?: string | null;
+  limitAmount: number;
+  alertThreshold: number;
+  category?: TransactionCategorySummary | null;
+  subcategory?: TransactionCategorySummary | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type BudgetInput = {
+  month: string;
+  categoryId: string;
+  subcategoryId?: string | null;
+  limitAmount: number;
+  alertThreshold?: number;
+};
+
 export type TransactionFormFieldName =
   | "type"
   | "amount"

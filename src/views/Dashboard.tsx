@@ -11,7 +11,9 @@ import { getCurrentIstDateTimeInputs } from "../utils/dateTime";
 import TransactionForm from "../components/forms/TransactionForm";
 import DashboardCharts from "../components/dashboard/DashboardCharts";
 import RecentActivity from "../components/transactions/RecentActivity";
+import BudgetSummary from "../components/budgets/BudgetSummary";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
+import { getCurrentBudgetMonth } from "../lib/budgetAnalytics";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
@@ -31,6 +33,7 @@ function Dashboard() {
   const {
     transactions,
     accounts,
+    budgets,
     dispatch,
     transactionsStatus,
     transactionsError,
@@ -38,6 +41,8 @@ function Dashboard() {
     accountsError,
     categoriesStatus,
     categoriesError,
+    budgetsStatus,
+    budgetsError,
   } = useAppData();
   const { formatDate } = useCommonUtils();
   const currentDateTime = getCurrentIstDateTimeInputs();
@@ -100,20 +105,23 @@ function Dashboard() {
     transactionsStatus === "idle" ||
     accountsStatus === "idle" ||
     categoriesStatus === "idle" ||
+    budgetsStatus === "idle" ||
     (transactionsStatus === "loading" && transactions.length === 0) ||
     (accountsStatus === "loading" && accounts.length === 0) ||
-    categoriesStatus === "loading"
+    categoriesStatus === "loading" ||
+    budgetsStatus === "loading"
   ) {
     return <Loading />;
   }
   if (
     transactionsStatus === "failed" ||
     accountsStatus === "failed" ||
-    categoriesStatus === "failed"
+    categoriesStatus === "failed" ||
+    budgetsStatus === "failed"
   ) {
     return (
       <Failed
-        error={transactionsError || accountsError || categoriesError}
+        error={transactionsError || accountsError || categoriesError || budgetsError}
         text="Failed to load dashboard data. Please try again later."
       />
     );
@@ -142,6 +150,14 @@ function Dashboard() {
         </div>
 
         <RecentActivity transactions={transactions} formatDate={formatDate} />
+      </div>
+      <div className="mb-8">
+        <BudgetSummary
+          budgets={budgets}
+          transactions={transactions}
+          month={getCurrentBudgetMonth()}
+          compact
+        />
       </div>
       <DashboardCharts transactions={transactions} />
     </PageLayout>
