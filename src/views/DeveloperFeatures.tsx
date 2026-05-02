@@ -89,8 +89,8 @@ export default function DeveloperFeatures() {
                 } disabled:cursor-wait disabled:opacity-70`}
               >
                 <span
-                  className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-                    feature.enabled ? "translate-x-9" : "translate-x-1"
+                  className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                    feature.enabled ? "translate-x-8" : "translate-x-0"
                   }`}
                 />
                 <span className="sr-only">
