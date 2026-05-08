@@ -2,13 +2,17 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import type {
   AccountInput,
+  BudgetInput,
   PersonDirection,
+  RecurringBillFrequency,
+  RecurringBillInput,
   TransactionCategoryInput,
   TransactionInput,
   TransactionType,
 } from "@/types/money";
 import { toAmount } from "@/lib/moneyCalculations";
 import { UnauthorizedError } from "@/server/authSession";
+import { FeatureDisabledError } from "@/server/featureRepository";
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -24,6 +28,11 @@ const TRANSACTION_TYPES: TransactionType[] = [
   "person",
 ];
 const PERSON_DIRECTIONS: PersonDirection[] = ["to", "from"];
+const BILL_FREQUENCIES: RecurringBillFrequency[] = [
+  "weekly",
+  "monthly",
+  "yearly",
+];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -178,6 +187,127 @@ export const validateCategoryPayload = (
   return category;
 };
 
+export const validateBudgetPayload = (
+  payload: unknown,
+  mode: "create" | "update",
+): Partial<BudgetInput> => {
+  if (!isRecord(payload)) {
+    throw new ValidationError("Request body must be an object");
+  }
+
+  const budget: Partial<BudgetInput> = {};
+  const month = getString(payload, "month", mode === "create");
+  const categoryId = getString(payload, "categoryId", mode === "create");
+  const subcategoryId = getString(payload, "subcategoryId");
+  const limitAmount = parseAmount(payload.limitAmount, mode === "create");
+
+  if (month !== undefined) {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new ValidationError("month must use YYYY-MM format");
+    }
+    budget.month = month;
+  }
+
+  if (categoryId !== undefined) budget.categoryId = categoryId;
+  if (subcategoryId !== undefined) budget.subcategoryId = subcategoryId;
+  if (
+    mode === "update" &&
+    payload.subcategoryId !== undefined &&
+    subcategoryId === undefined
+  ) {
+    budget.subcategoryId = null;
+  }
+  if (limitAmount !== undefined) budget.limitAmount = limitAmount;
+
+  if (payload.alertThreshold !== undefined) {
+    const alertThreshold = Number(payload.alertThreshold);
+    if (
+      !Number.isInteger(alertThreshold) ||
+      alertThreshold < 1 ||
+      alertThreshold > 100
+    ) {
+      throw new ValidationError("alertThreshold must be between 1 and 100");
+    }
+    budget.alertThreshold = alertThreshold;
+  }
+
+  if (mode === "update" && Object.keys(budget).length === 0) {
+    throw new ValidationError("At least one budget field is required");
+  }
+
+  return budget;
+};
+
+export const validateRecurringBillPayload = (
+  payload: unknown,
+  mode: "create" | "update",
+): Partial<RecurringBillInput> => {
+  if (!isRecord(payload)) {
+    throw new ValidationError("Request body must be an object");
+  }
+
+  const bill: Partial<RecurringBillInput> = {};
+  const name = getString(payload, "name", mode === "create");
+  const amount = parseAmount(payload.amount, mode === "create");
+  const account = getString(payload, "account", mode === "create");
+  const categoryId = getString(payload, "categoryId", mode === "create");
+  const subcategoryId = getString(payload, "subcategoryId");
+  const frequency = getString(payload, "frequency", mode === "create");
+  const nextDueDate = getString(payload, "nextDueDate", mode === "create");
+
+  if (name !== undefined) bill.name = name;
+  if (amount !== undefined) bill.amount = amount;
+  if (account !== undefined) bill.account = account;
+  if (categoryId !== undefined) bill.categoryId = categoryId;
+  if (subcategoryId !== undefined) bill.subcategoryId = subcategoryId;
+  if (
+    mode === "update" &&
+    payload.subcategoryId !== undefined &&
+    subcategoryId === undefined
+  ) {
+    bill.subcategoryId = null;
+  }
+
+  if (frequency !== undefined) {
+    if (!BILL_FREQUENCIES.includes(frequency as RecurringBillFrequency)) {
+      throw new ValidationError("frequency is not supported");
+    }
+    bill.frequency = frequency as RecurringBillFrequency;
+  }
+
+  if (nextDueDate !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDueDate)) {
+      throw new ValidationError("nextDueDate must use YYYY-MM-DD format");
+    }
+    bill.nextDueDate = nextDueDate;
+  }
+
+  if (payload.reminderDays !== undefined) {
+    const reminderDays = Number(payload.reminderDays);
+    if (
+      !Number.isInteger(reminderDays) ||
+      reminderDays < 0 ||
+      reminderDays > 365
+    ) {
+      throw new ValidationError("reminderDays must be between 0 and 365");
+    }
+    bill.reminderDays = reminderDays;
+  }
+
+  if (payload.active !== undefined) {
+    if (typeof payload.active !== "boolean") {
+      throw new ValidationError("active must be a boolean");
+    }
+    bill.active = payload.active;
+  }
+
+  if (mode === "update" && Object.keys(bill).length === 0) {
+    throw new ValidationError("At least one recurring bill field is required");
+  }
+
+  return bill;
+};
+
 export const validateTransactionPayload = (
   payload: unknown,
   mode: "create" | "update",
@@ -268,6 +398,10 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
     return jsonError(error.message, 401);
   }
 
+  if (error instanceof FeatureDisabledError) {
+    return jsonError(error.message, 403);
+  }
+
   if (error instanceof ValidationError) {
     return jsonError(error.message, 400);
   }
@@ -299,12 +433,32 @@ export const handleApiError = (error: unknown, fallbackMessage: string) => {
       "Category is not valid",
       "Subcategory is not valid",
       "Category name is required",
+      "At least one transaction is required",
+      "Budget category is required",
+      "Budget category must be an expense category",
+      "Budget subcategory is not valid",
+      "Budget limit must be greater than 0",
+      "Budget alert threshold must be between 1 and 100",
+      "A budget already exists",
+      "Recurring bill name is required",
+      "Recurring bill account is required",
+      "Recurring bill category is required",
+      "Recurring bill category must be an expense category",
+      "Recurring bill subcategory is not valid",
+      "Recurring bill amount must be greater than 0",
+      "Recurring bill frequency is not supported",
+      "Recurring bill reminder days must be between 0 and 365",
+      "Recurring bill has already been paid for this due date",
+      "Recurring bill is paused",
+      "Feature key is not supported",
       "Parent category is not valid",
       "Cannot delete a category that has transactions",
+      "Cannot delete a category that has recurring bills",
       "Cannot delete a category that has subcategories",
       "System categories cannot be deleted",
       "The Cash account cannot be deleted.",
       "Cannot delete account that has transactions",
+      "Cannot delete account that has transactions or recurring bills",
     ];
 
     if (badRequestMessages.some((message) => error.message.includes(message))) {

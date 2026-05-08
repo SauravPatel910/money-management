@@ -2,16 +2,114 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { recalculateBalances } from "./moneyCalculations.ts";
 import {
+  buildImportPreviewRows,
+  buildReportSummary,
   buildBalanceTrend,
   buildCategoryBreakdown,
+  buildTransactionDuplicateKey,
+  filterTransactionsForReport,
   buildMonthlyCashflow,
   buildTransactionTypeMix,
+  rowsToCsv,
 } from "./moneyAnalytics.ts";
-import type { Account, MoneyTransaction, TransactionInput } from "@/types/money";
+import {
+  buildBudgetProgress,
+  getBudgetStatus,
+  summarizeBudgetProgress,
+} from "./budgetAnalytics.ts";
+import {
+  buildStatementPreviewRows,
+  parseBankStatementText,
+  statementRowToTransactionInput,
+} from "./bankStatementParser.ts";
+import {
+  DEFAULT_FEATURE_FLAGS,
+  featureFlagsToRecord,
+  isFeatureKey,
+} from "./featureFlags.ts";
+import {
+  advanceRecurringBillDueDate,
+  getRecurringBillStatus,
+  recurringBillToTransactionInput,
+  summarizeRecurringBills,
+} from "./recurringBills.ts";
+import type {
+  Account,
+  Budget,
+  MoneyTransaction,
+  RecurringBill,
+  TransactionCategory,
+  TransactionInput,
+} from "@/types/money";
 
 const accounts: Account[] = [
   { id: "cash", name: "Cash", balance: 0, icon: "cash" },
   { id: "bank", name: "Bank", balance: 0, icon: "bank" },
+];
+const categories: TransactionCategory[] = [
+  {
+    id: "salary",
+    type: "income",
+    name: "Salary",
+    parentId: null,
+    isSystem: false,
+    sortOrder: 0,
+  },
+  {
+    id: "food",
+    type: "expense",
+    name: "Food",
+    parentId: null,
+    isSystem: false,
+    sortOrder: 0,
+  },
+  {
+    id: "dinner",
+    type: "expense",
+    name: "Dinner",
+    parentId: "food",
+    isSystem: false,
+    sortOrder: 0,
+  },
+];
+const budgets: Budget[] = [
+  {
+    id: "food-budget",
+    month: "2026-04",
+    categoryId: "food",
+    subcategoryId: null,
+    limitAmount: 1000,
+    alertThreshold: 80,
+    category: {
+      id: "food",
+      type: "expense",
+      name: "Food",
+      parentId: null,
+      isSystem: false,
+    },
+  },
+  {
+    id: "dinner-budget",
+    month: "2026-04",
+    categoryId: "food",
+    subcategoryId: "dinner",
+    limitAmount: 100,
+    alertThreshold: 80,
+    category: {
+      id: "food",
+      type: "expense",
+      name: "Food",
+      parentId: null,
+      isSystem: false,
+    },
+    subcategory: {
+      id: "dinner",
+      type: "expense",
+      name: "Dinner",
+      parentId: "food",
+      isSystem: false,
+    },
+  },
 ];
 
 const transaction = (
@@ -221,4 +319,416 @@ test("transaction type mix tracks count and amount", () => {
       { type: "person", count: 0, amount: 0 },
     ],
   );
+});
+
+test("report filters narrow by date type account and category", () => {
+  const rows = [
+    transaction({
+      type: "income",
+      amount: 500,
+      account: "cash",
+      categoryId: "salary",
+      transactionDate: "2026-04-01",
+    }),
+    transaction({
+      type: "expense",
+      amount: 125,
+      account: "bank",
+      categoryId: "food",
+      transactionDate: "2026-04-15",
+    }),
+  ];
+
+  assert.deepEqual(
+    filterTransactionsForReport(rows, {
+      dateFrom: "2026-04-10",
+      type: "expense",
+      accountId: "bank",
+      categoryId: "food",
+    }).map(({ amount }) => amount),
+    [125],
+  );
+});
+
+test("report summary includes income expense net count and current balance", () => {
+  const summary = buildReportSummary(
+    [
+      transaction({ type: "income", amount: 500, account: "cash" }),
+      transaction({ type: "expense", amount: 125, account: "cash" }),
+      transaction({
+        type: "person",
+        amount: 50,
+        account: "cash",
+        direction: "from",
+        person: "Asha",
+      }),
+    ],
+    [
+      { id: "cash", name: "Cash", balance: 300, icon: "cash" },
+      { id: "bank", name: "Bank", balance: 200, icon: "bank" },
+    ],
+  );
+
+  assert.deepEqual(summary, {
+    totalIncome: 550,
+    totalExpense: 125,
+    netCashflow: 425,
+    totalBalance: 500,
+    transactionCount: 3,
+  });
+});
+
+test("csv export escapes commas quotes and line breaks", () => {
+  assert.equal(
+    rowsToCsv(["note"], [{ note: 'Lunch, "team"\npaid' }]),
+    'note\r\n"Lunch, ""team""\npaid"',
+  );
+});
+
+test("import preview maps names and skips duplicate-looking rows by default", () => {
+  const existing = transaction({
+    type: "expense",
+    amount: 125,
+    account: "cash",
+    categoryId: "food",
+    subcategoryId: "dinner",
+    note: "Dinner",
+    transactionDate: "2026-04-26",
+    transactionTime: "20:00",
+  });
+  const rows = buildImportPreviewRows({
+    rows: [
+      {
+        type: "expense",
+        amount: "125",
+        transactionDate: "2026-04-26",
+        transactionTime: "20:00",
+        account: "Cash",
+        category: "Food",
+        subcategory: "Dinner",
+        note: "Dinner",
+      },
+      {
+        type: "income",
+        amount: "500",
+        transactionDate: "2026-04-27",
+        transactionTime: "09:00",
+        account: "Bank",
+        category: "Salary",
+        note: "Salary",
+      },
+    ],
+    accounts,
+    categories,
+    existingTransactions: [existing],
+  });
+
+  assert.equal(rows[0].status, "duplicate");
+  assert.equal(rows[0].include, false);
+  assert.equal(rows[1].status, "valid");
+  assert.equal(rows[1].include, true);
+  assert.equal(rows[1].transaction?.account, "bank");
+  assert.equal(rows[1].transaction?.categoryId, "salary");
+});
+
+test("duplicate keys normalize note and amount values", () => {
+  const first = buildTransactionDuplicateKey(
+    transaction({
+      type: "expense",
+      amount: 125,
+      account: "cash",
+      categoryId: "food",
+      note: " Dinner ",
+    }),
+  );
+  const second = buildTransactionDuplicateKey({
+    type: "expense",
+    amount: 125.0,
+    account: "cash",
+    from: null,
+    to: null,
+    direction: null,
+    person: null,
+    categoryId: "food",
+    subcategoryId: null,
+    note: "dinner",
+    transactionDate: "2026-04-26",
+    transactionTime: "10:00",
+  });
+
+  assert.equal(first, second);
+});
+
+test("budget progress filters expense transactions by budget month", () => {
+  const progress = buildBudgetProgress(
+    [budgets[0]],
+    [
+      transaction({
+        type: "expense",
+        amount: 200,
+        account: "cash",
+        categoryId: "food",
+        transactionDate: "2026-04-10",
+      }),
+      transaction({
+        type: "expense",
+        amount: 300,
+        account: "cash",
+        categoryId: "food",
+        transactionDate: "2026-05-10",
+      }),
+      transaction({
+        type: "income",
+        amount: 500,
+        account: "cash",
+        categoryId: "salary",
+        transactionDate: "2026-04-10",
+      }),
+    ],
+  );
+
+  assert.equal(progress[0].spentAmount, 200);
+  assert.equal(progress[0].remainingAmount, 800);
+  assert.equal(progress[0].progressPercent, 20);
+  assert.equal(progress[0].status, "under");
+});
+
+test("budget progress can target a subcategory", () => {
+  const progress = buildBudgetProgress(
+    [budgets[1]],
+    [
+      transaction({
+        type: "expense",
+        amount: 75,
+        account: "cash",
+        categoryId: "food",
+        subcategoryId: "dinner",
+      }),
+      transaction({
+        type: "expense",
+        amount: 50,
+        account: "cash",
+        categoryId: "food",
+      }),
+    ],
+  );
+
+  assert.equal(progress[0].spentAmount, 75);
+  assert.equal(progress[0].status, "under");
+});
+
+test("budget status marks near threshold and over budget", () => {
+  assert.equal(getBudgetStatus(799, 1000, 80), "under");
+  assert.equal(getBudgetStatus(800, 1000, 80), "near");
+  assert.equal(getBudgetStatus(1001, 1000, 80), "over");
+});
+
+test("budget summary totals limits and alert counts", () => {
+  const summary = summarizeBudgetProgress(
+    buildBudgetProgress(budgets, [
+      transaction({
+        type: "expense",
+        amount: 850,
+        account: "cash",
+        categoryId: "food",
+      }),
+      transaction({
+        type: "expense",
+        amount: 125,
+        account: "cash",
+        categoryId: "food",
+        subcategoryId: "dinner",
+      }),
+    ]),
+  );
+
+  assert.deepEqual(summary, {
+    totalLimit: 1100,
+    totalSpent: 1100,
+    overBudgetCount: 1,
+    nearBudgetCount: 1,
+  });
+});
+
+test("bank statement parser extracts debit and credit rows", () => {
+  const rows = parseBankStatementText(`
+Date Description Debit Credit Balance
+01/04/2026 UPI PAYMENT TO STORE 125.00 4,875.00
+02/04/2026 SALARY CREDIT CR 50,000.00 54,875.00
+`);
+
+  assert.deepEqual(
+    rows.map(({ date, type, amount, description }) => ({
+      date,
+      type,
+      amount,
+      description,
+    })),
+    [
+      {
+        date: "2026-04-01",
+        type: "debit",
+        amount: 125,
+        description: "UPI PAYMENT TO STORE",
+      },
+      {
+        date: "2026-04-02",
+        type: "credit",
+        amount: 50000,
+        description: "SALARY CREDIT CR",
+      },
+    ],
+  );
+});
+
+test("bank statement row converts to transaction input", () => {
+  const [row] = parseBankStatementText(
+    "03-Apr-2026 ATM WITHDRAWAL DR 2,000.00 52,875.00",
+  );
+  const transactionInput = statementRowToTransactionInput({
+    row: {
+      ...row,
+      categoryId: "food",
+      subcategoryId: "dinner",
+    },
+    accountId: "bank",
+  });
+
+  assert.deepEqual(transactionInput, {
+    type: "expense",
+    amount: 2000,
+    account: "bank",
+    note: "ATM WITHDRAWAL DR",
+    categoryId: "food",
+    subcategoryId: "dinner",
+    transactionDate: "2026-04-03",
+    transactionTime: "00:00",
+    entryDate: "2026-04-03",
+    entryTime: "00:00",
+  });
+});
+
+test("bank statement preview reuses duplicate detection", () => {
+  const [row] = parseBankStatementText(
+    "04/04/2026 DINNER PAYMENT DR 125.00 4,750.00",
+  );
+  const preview = buildStatementPreviewRows({
+    rows: [{ ...row, categoryId: "food", subcategoryId: "dinner" }],
+    accountId: "cash",
+    accounts,
+    categories,
+    existingTransactions: [
+      transaction({
+        type: "expense",
+        amount: 125,
+        account: "cash",
+        categoryId: "food",
+        subcategoryId: "dinner",
+        note: "DINNER PAYMENT DR",
+        transactionDate: "2026-04-04",
+        transactionTime: "00:00",
+      }),
+    ],
+  });
+
+  assert.equal(preview[0].status, "duplicate");
+  assert.equal(preview[0].include, false);
+});
+
+test("feature flags default every feature to enabled", () => {
+  assert.equal(DEFAULT_FEATURE_FLAGS.bankStatementOcr, true);
+  assert.equal(DEFAULT_FEATURE_FLAGS.spreadsheetImport, true);
+  assert.equal(DEFAULT_FEATURE_FLAGS.exports, true);
+  assert.equal(DEFAULT_FEATURE_FLAGS.recurringBills, true);
+});
+
+test("feature flags merge persisted values over defaults", () => {
+  const flags = featureFlagsToRecord([
+    { key: "bankStatementOcr", label: "Bank Statement OCR Import", enabled: false },
+  ]);
+
+  assert.equal(flags.bankStatementOcr, false);
+  assert.equal(flags.reports, true);
+});
+
+test("feature flag keys reject unsupported features", () => {
+  assert.equal(isFeatureKey("bankStatementOcr"), true);
+  assert.equal(isFeatureKey("madeUpFeature"), false);
+});
+
+const recurringBill = (overrides: Partial<RecurringBill> = {}): RecurringBill => ({
+  id: "bill-1",
+  name: "Rent",
+  amount: 12000,
+  account: "bank",
+  categoryId: "food",
+  subcategoryId: null,
+  frequency: "monthly",
+  nextDueDate: "2026-05-10",
+  reminderDays: 3,
+  active: true,
+  ...overrides,
+});
+
+test("recurring bill status handles upcoming due overdue and paused", () => {
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-01"),
+    "scheduled",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-08"),
+    "upcoming",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-10"),
+    "dueToday",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-11"),
+    "overdue",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ active: false }), "2026-05-11"),
+    "paused",
+  );
+});
+
+test("recurring bill due date advances by frequency", () => {
+  assert.equal(advanceRecurringBillDueDate("2026-05-10", "weekly"), "2026-05-17");
+  assert.equal(advanceRecurringBillDueDate("2026-01-31", "monthly"), "2026-02-28");
+  assert.equal(advanceRecurringBillDueDate("2026-05-10", "yearly"), "2027-05-10");
+});
+
+test("recurring bill converts to expense transaction input", () => {
+  assert.deepEqual(
+    recurringBillToTransactionInput(recurringBill(), "2026-05-08"),
+    {
+      type: "expense",
+      amount: 12000,
+      account: "bank",
+      categoryId: "food",
+      subcategoryId: "",
+      note: "Bill paid: Rent",
+      transactionDate: "2026-05-10",
+      transactionTime: "00:00",
+      entryDate: "2026-05-08",
+      entryTime: "00:00",
+    },
+  );
+});
+
+test("recurring bill summary totals due and overdue alerts", () => {
+  const summary = summarizeRecurringBills(
+    [
+      recurringBill({ id: "1", nextDueDate: "2026-05-08", amount: 100 }),
+      recurringBill({ id: "2", nextDueDate: "2026-05-07", amount: 200 }),
+      recurringBill({ id: "3", nextDueDate: "2026-05-11", amount: 300 }),
+    ],
+    "2026-05-08",
+  );
+
+  assert.equal(summary.dueToday, 1);
+  assert.equal(summary.overdue, 1);
+  assert.equal(summary.upcoming, 1);
+  assert.equal(summary.overdueAmount, 200);
 });

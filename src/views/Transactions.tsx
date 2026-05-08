@@ -18,6 +18,8 @@ import { useCommonUtils } from "../hooks/useCommonUtils";
 import { useTransactionForm } from "../hooks/useTransactionForm";
 import { useTransactionValidation } from "../hooks/useTransactionValidation";
 import { getCurrentIstDateTimeInputs } from "../utils/dateTime";
+import FeatureDisabled from "../components/common/FeatureDisabled";
+import FeatureGate from "../components/common/FeatureGate";
 import TransactionForm from "../components/forms/TransactionForm";
 import TransactionHistory from "../components/transactions/TransactionHistory";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
@@ -275,67 +277,72 @@ function TransactionHistoryPage() {
   }
 
   return (
-    <PageLayout
-      title="Transaction History"
-      headerLinks={getNavigationLinks("transactions")}
-      loadingText="Loading transaction history..."
+    <FeatureGate
+      feature="transactions"
+      fallback={<FeatureDisabled title="Transaction History disabled" />}
     >
-      {pageMessage && (
-        <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
-          {pageMessage}
-        </div>
-      )}
-      {pendingDeleteId && (
-        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
-          <span>Delete this transaction?</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
-              onClick={handleConfirmDelete}
-            >
-              Delete
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
-              onClick={handleCancelDelete}
-            >
-              Cancel
-            </button>
+      <PageLayout
+        title="Transaction History"
+        headerLinks={getNavigationLinks("transactions")}
+        loadingText="Loading transaction history..."
+      >
+        {pageMessage && (
+          <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+            {pageMessage}
           </div>
-        </div>
-      )}
-      {editingTransactionId && (
-        <div className="mb-8">
-          <TransactionForm
-            form={editForm}
-            handleInputChange={handleEditInputChange}
-            handleTypeChange={handleEditTypeChange}
-            handleSelectChange={handleEditSelectChange}
-            addTransaction={handleUpdateTransaction}
-            title="Edit Transaction"
-            submitLabel="Update Transaction"
-            onCancel={handleCancelEdit}
-            hiddenFields={hiddenAutomaticDateTimeFields}
-          />
-        </div>
-      )}
-      <TransactionHistory
-        transactions={transactions}
-        sortOrder={sortOrder}
-        toggleSortOrder={handleToggleSortOrder}
-        formatDate={formatDate}
-        editTransaction={handleStartEdit}
-        deleteTransaction={handleDeleteTransaction}
-        toggleTransactionHistory={handleToggleTransactionHistory}
-        expandedHistoryTransactionId={expandedHistoryTransactionId}
-        selectedEditHistory={selectedEditHistory}
-        selectedEditHistoryStatus={selectedEditHistoryStatus}
-        selectedEditHistoryError={selectedEditHistoryError}
-        sortedTransactions={sortedTransactions}
-      />
-    </PageLayout>
+        )}
+        {pendingDeleteId && (
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
+            <span>Delete this transaction?</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
+                onClick={handleConfirmDelete}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+                onClick={handleCancelDelete}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {editingTransactionId && (
+          <div className="mb-8">
+            <TransactionForm
+              form={editForm}
+              handleInputChange={handleEditInputChange}
+              handleTypeChange={handleEditTypeChange}
+              handleSelectChange={handleEditSelectChange}
+              addTransaction={handleUpdateTransaction}
+              title="Edit Transaction"
+              submitLabel="Update Transaction"
+              onCancel={handleCancelEdit}
+              hiddenFields={hiddenAutomaticDateTimeFields}
+            />
+          </div>
+        )}
+        <TransactionHistory
+          transactions={transactions}
+          sortOrder={sortOrder}
+          toggleSortOrder={handleToggleSortOrder}
+          formatDate={formatDate}
+          editTransaction={handleStartEdit}
+          deleteTransaction={handleDeleteTransaction}
+          toggleTransactionHistory={handleToggleTransactionHistory}
+          expandedHistoryTransactionId={expandedHistoryTransactionId}
+          selectedEditHistory={selectedEditHistory}
+          selectedEditHistoryStatus={selectedEditHistoryStatus}
+          selectedEditHistoryError={selectedEditHistoryError}
+          sortedTransactions={sortedTransactions}
+        />
+      </PageLayout>
+    </FeatureGate>
   );
 }
 

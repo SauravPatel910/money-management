@@ -18,6 +18,8 @@ model User {
   moneyAccounts MoneyAccount[]
   transactions  Transaction[]
   categories    TransactionCategory[]
+  budgets       Budget[]
+  recurringBills RecurringBill[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -105,6 +107,7 @@ model Transaction {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   editHistory     TransactionEditHistory[]
+  recurringBillPayments RecurringBillPayment[]
 
   @@index([userId])
   @@index([account])
@@ -129,6 +132,10 @@ model TransactionCategory {
   sortOrder                Int      @default(0) @map("sort_order")
   transactionsAsCategory   Transaction[] @relation("TransactionCategory")
   transactionsAsSubcategory Transaction[] @relation("TransactionSubcategory")
+  budgetsAsCategory        Budget[] @relation("BudgetCategory")
+  budgetsAsSubcategory     Budget[] @relation("BudgetSubcategory")
+  recurringBillsAsCategory RecurringBill[] @relation("RecurringBillCategory")
+  recurringBillsAsSubcategory RecurringBill[] @relation("RecurringBillSubcategory")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -137,6 +144,80 @@ model TransactionCategory {
   @@index([parentId])
   @@index([type])
   @@map("transaction_categories")
+}
+
+model RecurringBill {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  amount         Decimal  @db.Decimal(14, 2)
+  account        String
+  categoryId     String   @map("category_id")
+  subcategoryId  String?  @map("subcategory_id")
+  frequency      String
+  nextDueDate    DateTime @map("next_due_date")
+  reminderDays   Int      @default(3) @map("reminder_days")
+  active         Boolean  @default(true)
+  category       TransactionCategory @relation("RecurringBillCategory", fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory    TransactionCategory? @relation("RecurringBillSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  payments       RecurringBillPayment[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([nextDueDate])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@map("recurring_bills")
+}
+
+model RecurringBillPayment {
+  id             String   @id @default(cuid())
+  billId         String   @map("bill_id")
+  bill           RecurringBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  transactionId  String   @map("transaction_id")
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  occurrenceDate DateTime @map("occurrence_date")
+  paidAt         DateTime @default(now()) @map("paid_at")
+
+  @@unique([billId, occurrenceDate])
+  @@unique([transactionId])
+  @@index([billId])
+  @@index([transactionId])
+  @@map("recurring_bill_payments")
+}
+
+model Budget {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month          String
+  categoryId     String   @map("category_id")
+  subcategoryId  String?  @map("subcategory_id")
+  limitAmount    Decimal  @map("limit_amount") @db.Decimal(14, 2)
+  alertThreshold Int      @default(80) @map("alert_threshold")
+  category       TransactionCategory @relation("BudgetCategory", fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory    TransactionCategory? @relation("BudgetSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, month, categoryId, subcategoryId])
+  @@index([userId])
+  @@index([month])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@map("budgets")
+}
+
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  label     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("feature_flags")
 }
 
 model TransactionEditHistory {

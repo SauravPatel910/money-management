@@ -4,6 +4,7 @@ import {
   updateCategory,
 } from "@/server/moneyRepository";
 import { requireUserId } from "@/server/authSession";
+import { requireFeatureEnabled } from "@/server/featureRepository";
 import {
   handleApiError,
   validateCategoryPayload,
@@ -15,6 +16,7 @@ type RouteContext = {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
+    await requireFeatureEnabled("categories");
     const userId = await requireUserId();
     const { id } = await params;
     const updates = validateCategoryPayload(await request.json(), "update");
@@ -26,6 +28,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
+    await requireFeatureEnabled("categories");
     const userId = await requireUserId();
     const { id } = await params;
     return NextResponse.json({ id: await deleteCategory(userId, id) });

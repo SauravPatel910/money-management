@@ -1,6 +1,8 @@
 "use client";
 
 import CategoryManager from "../components/categories/CategoryManager";
+import FeatureDisabled from "../components/common/FeatureDisabled";
+import FeatureGate from "../components/common/FeatureGate";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import Failed from "../components/UI/Failed";
 import Loading from "../components/UI/Loading";
@@ -29,13 +31,18 @@ function Categories() {
   }
 
   return (
-    <PageLayout
-      title="Categories"
-      headerLinks={getNavigationLinks("categories")}
-      loadingText="Loading categories..."
+    <FeatureGate
+      feature="categories"
+      fallback={<FeatureDisabled title="Categories disabled" />}
     >
-      <CategoryManager categories={categories} dispatch={dispatch} />
-    </PageLayout>
+      <PageLayout
+        title="Categories"
+        headerLinks={getNavigationLinks("categories")}
+        loadingText="Loading categories..."
+      >
+        <CategoryManager categories={categories} dispatch={dispatch} />
+      </PageLayout>
+    </FeatureGate>
   );
 }
 

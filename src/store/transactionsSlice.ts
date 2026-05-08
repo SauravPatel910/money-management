@@ -3,7 +3,11 @@ import type { RootState } from "../config/reduxStore";
 import type {
   Account,
   AccountInput,
+  Budget,
+  BudgetInput,
   MoneyTransaction,
+  RecurringBill,
+  RecurringBillInput,
   Summary,
   TransactionCategory,
   TransactionCategoryInput,
@@ -13,10 +17,13 @@ import type {
 import {
   fetchTransactions,
   fetchAccounts,
+  fetchBudgets,
+  fetchRecurringBills,
   addTransaction,
   fetchCategories,
   fetchTransactionEditHistory,
   updateTransaction,
+  importTransactions,
   deleteTransaction,
   addAccount,
   updateAccount,
@@ -24,6 +31,13 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+  addBudget,
+  updateBudget,
+  deleteBudget,
+  addRecurringBill,
+  updateRecurringBill,
+  deleteRecurringBill,
+  payRecurringBill,
 } from "../services/moneyService";
 import {
   calculateSummary,
@@ -37,6 +51,8 @@ type TransactionsState = {
   transactions: MoneyTransaction[];
   accounts: Account[];
   categories: TransactionCategory[];
+  budgets: Budget[];
+  recurringBills: RecurringBill[];
   sortOrder: SortOrder;
   summary: Summary;
   transactionsStatus: RequestStatus;
@@ -45,6 +61,10 @@ type TransactionsState = {
   accountsError: string | null;
   categoriesStatus: RequestStatus;
   categoriesError: string | null;
+  budgetsStatus: RequestStatus;
+  budgetsError: string | null;
+  recurringBillsStatus: RequestStatus;
+  recurringBillsError: string | null;
   editHistoryByTransactionId: Record<string, TransactionEditHistory[]>;
   editHistoryStatusByTransactionId: Record<string, RequestStatus>;
   editHistoryErrorByTransactionId: Record<string, string | null>;
@@ -52,10 +72,13 @@ type TransactionsState = {
 
 type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
 type UpdateCategoryPayload = { id: string } & Partial<TransactionCategoryInput>;
+type UpdateBudgetPayload = { id: string } & Partial<BudgetInput>;
+type UpdateRecurringBillPayload = { id: string } & Partial<RecurringBillInput>;
 type FreshDataPayload = {
   processedTransactions: MoneyTransaction[];
   updatedAccounts: Account[];
   updatedCategories: TransactionCategory[];
+  recurringBills?: RecurringBill[];
 };
 
 const fetchFreshMoneyData = async (): Promise<FreshDataPayload> => {
@@ -99,11 +122,32 @@ export const fetchCategoriesThunk = createAsyncThunk(
   },
 );
 
+export const fetchBudgetsThunk = createAsyncThunk(
+  "transactions/fetchBudgets",
+  async () => {
+    return await fetchBudgets();
+  },
+);
+
+export const fetchRecurringBillsThunk = createAsyncThunk(
+  "transactions/fetchRecurringBills",
+  async () => {
+    return await fetchRecurringBills();
+  },
+);
+
 export const updateTransactionThunk = createAsyncThunk(
   "transactions/updateTransaction",
   async ({ id, ...transaction }: UpdateTransactionPayload) => {
     await updateTransaction(id, transaction);
     return fetchFreshMoneyData();
+  },
+);
+
+export const importTransactionsThunk = createAsyncThunk(
+  "transactions/importTransactions",
+  async (transactions: TransactionInput[]) => {
+    return await importTransactions(transactions);
   },
 );
 
@@ -184,10 +228,63 @@ export const deleteCategoryThunk = createAsyncThunk(
   },
 );
 
+export const addBudgetThunk = createAsyncThunk(
+  "transactions/addBudget",
+  async (budget: BudgetInput) => {
+    return await addBudget(budget);
+  },
+);
+
+export const editBudgetThunk = createAsyncThunk(
+  "transactions/editBudget",
+  async ({ id, ...updates }: UpdateBudgetPayload) => {
+    return await updateBudget(id, updates);
+  },
+);
+
+export const deleteBudgetThunk = createAsyncThunk(
+  "transactions/deleteBudget",
+  async (id: string) => {
+    await deleteBudget(id);
+    return id;
+  },
+);
+
+export const addRecurringBillThunk = createAsyncThunk(
+  "transactions/addRecurringBill",
+  async (bill: RecurringBillInput) => {
+    return await addRecurringBill(bill);
+  },
+);
+
+export const editRecurringBillThunk = createAsyncThunk(
+  "transactions/editRecurringBill",
+  async ({ id, ...updates }: UpdateRecurringBillPayload) => {
+    return await updateRecurringBill(id, updates);
+  },
+);
+
+export const deleteRecurringBillThunk = createAsyncThunk(
+  "transactions/deleteRecurringBill",
+  async (id: string) => {
+    await deleteRecurringBill(id);
+    return id;
+  },
+);
+
+export const payRecurringBillThunk = createAsyncThunk(
+  "transactions/payRecurringBill",
+  async (id: string) => {
+    return await payRecurringBill(id);
+  },
+);
+
 const initialState: TransactionsState = {
   transactions: [],
   accounts: [],
   categories: [],
+  budgets: [],
+  recurringBills: [],
   sortOrder: "newest",
   summary: { totalIncome: 0, totalExpense: 0 },
   transactionsStatus: "idle",
@@ -196,6 +293,10 @@ const initialState: TransactionsState = {
   accountsError: null,
   categoriesStatus: "idle",
   categoriesError: null,
+  budgetsStatus: "idle",
+  budgetsError: null,
+  recurringBillsStatus: "idle",
+  recurringBillsError: null,
   editHistoryByTransactionId: {},
   editHistoryStatusByTransactionId: {},
   editHistoryErrorByTransactionId: {},
@@ -225,6 +326,11 @@ const applyFreshMoneyData = (
   state.accountsError = null;
   state.categoriesStatus = "succeeded";
   state.categoriesError = null;
+  if (payload.recurringBills) {
+    state.recurringBills = payload.recurringBills;
+    state.recurringBillsStatus = "succeeded";
+    state.recurringBillsError = null;
+  }
 };
 
 export const transactionsSlice = createSlice({
@@ -283,6 +389,36 @@ export const transactionsSlice = createSlice({
         state.categoriesError = action.error.message ?? null;
       })
 
+      // Fetch Budgets
+      .addCase(fetchBudgetsThunk.pending, (state) => {
+        state.budgetsStatus = "loading";
+        state.budgetsError = null;
+      })
+      .addCase(fetchBudgetsThunk.fulfilled, (state, action) => {
+        state.budgetsStatus = "succeeded";
+        state.budgetsError = null;
+        state.budgets = action.payload;
+      })
+      .addCase(fetchBudgetsThunk.rejected, (state, action) => {
+        state.budgetsStatus = "failed";
+        state.budgetsError = action.error.message ?? null;
+      })
+
+      // Fetch Recurring Bills
+      .addCase(fetchRecurringBillsThunk.pending, (state) => {
+        state.recurringBillsStatus = "loading";
+        state.recurringBillsError = null;
+      })
+      .addCase(fetchRecurringBillsThunk.fulfilled, (state, action) => {
+        state.recurringBillsStatus = "succeeded";
+        state.recurringBillsError = null;
+        state.recurringBills = action.payload;
+      })
+      .addCase(fetchRecurringBillsThunk.rejected, (state, action) => {
+        state.recurringBillsStatus = "failed";
+        state.recurringBillsError = action.error.message ?? null;
+      })
+
       // Add Transaction
       .addCase(addTransactionThunk.fulfilled, (state, action) => {
         applyFreshMoneyData(state, action.payload);
@@ -300,6 +436,14 @@ export const transactionsSlice = createSlice({
         state.editHistoryErrorByTransactionId[transactionId] = null;
       })
       .addCase(updateTransactionThunk.rejected, (state, action) => {
+        state.transactionsError = action.error.message ?? null;
+      })
+
+      // Import Transactions
+      .addCase(importTransactionsThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(importTransactionsThunk.rejected, (state, action) => {
         state.transactionsError = action.error.message ?? null;
       })
 
@@ -372,6 +516,74 @@ export const transactionsSlice = createSlice({
       })
       .addCase(deleteCategoryThunk.rejected, (state, action) => {
         state.categoriesError = action.error.message ?? null;
+      })
+
+      // Budgets
+      .addCase(addBudgetThunk.fulfilled, (state, action) => {
+        state.budgets.push(action.payload);
+        state.budgetsStatus = "succeeded";
+        state.budgetsError = null;
+      })
+      .addCase(addBudgetThunk.rejected, (state, action) => {
+        state.budgetsError = action.error.message ?? null;
+      })
+      .addCase(editBudgetThunk.fulfilled, (state, action) => {
+        const index = state.budgets.findIndex(
+          (budget) => budget.id === action.payload.id,
+        );
+        if (index >= 0) {
+          state.budgets[index] = action.payload;
+        }
+        state.budgetsError = null;
+      })
+      .addCase(editBudgetThunk.rejected, (state, action) => {
+        state.budgetsError = action.error.message ?? null;
+      })
+      .addCase(deleteBudgetThunk.fulfilled, (state, action) => {
+        state.budgets = state.budgets.filter(
+          (budget) => budget.id !== action.payload,
+        );
+        state.budgetsError = null;
+      })
+      .addCase(deleteBudgetThunk.rejected, (state, action) => {
+        state.budgetsError = action.error.message ?? null;
+      })
+
+      // Recurring Bills
+      .addCase(addRecurringBillThunk.fulfilled, (state, action) => {
+        state.recurringBills.push(action.payload);
+        state.recurringBillsStatus = "succeeded";
+        state.recurringBillsError = null;
+      })
+      .addCase(addRecurringBillThunk.rejected, (state, action) => {
+        state.recurringBillsError = action.error.message ?? null;
+      })
+      .addCase(editRecurringBillThunk.fulfilled, (state, action) => {
+        const index = state.recurringBills.findIndex(
+          (bill) => bill.id === action.payload.id,
+        );
+        if (index >= 0) {
+          state.recurringBills[index] = action.payload;
+        }
+        state.recurringBillsError = null;
+      })
+      .addCase(editRecurringBillThunk.rejected, (state, action) => {
+        state.recurringBillsError = action.error.message ?? null;
+      })
+      .addCase(deleteRecurringBillThunk.fulfilled, (state, action) => {
+        state.recurringBills = state.recurringBills.filter(
+          (bill) => bill.id !== action.payload,
+        );
+        state.recurringBillsError = null;
+      })
+      .addCase(deleteRecurringBillThunk.rejected, (state, action) => {
+        state.recurringBillsError = action.error.message ?? null;
+      })
+      .addCase(payRecurringBillThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(payRecurringBillThunk.rejected, (state, action) => {
+        state.recurringBillsError = action.error.message ?? null;
       });
   },
 });
@@ -383,6 +595,9 @@ export const selectTransactions = (state: RootState) =>
 export const selectAccounts = (state: RootState) => state.transactions.accounts;
 export const selectCategories = (state: RootState) =>
   state.transactions.categories;
+export const selectBudgets = (state: RootState) => state.transactions.budgets;
+export const selectRecurringBills = (state: RootState) =>
+  state.transactions.recurringBills;
 export const selectAccountById = (id: string) => (state: RootState) =>
   state.transactions.accounts.find((account) => account.id === id);
 export const selectCashBalance = (state: RootState) =>
@@ -411,6 +626,14 @@ export const selectCategoriesStatus = (state: RootState) =>
   state.transactions.categoriesStatus;
 export const selectCategoriesError = (state: RootState) =>
   state.transactions.categoriesError;
+export const selectBudgetsStatus = (state: RootState) =>
+  state.transactions.budgetsStatus;
+export const selectBudgetsError = (state: RootState) =>
+  state.transactions.budgetsError;
+export const selectRecurringBillsStatus = (state: RootState) =>
+  state.transactions.recurringBillsStatus;
+export const selectRecurringBillsError = (state: RootState) =>
+  state.transactions.recurringBillsError;
 export const selectTransactionEditHistory =
   (transactionId: string) => (state: RootState) =>
     state.transactions.editHistoryByTransactionId[transactionId] ?? [];
