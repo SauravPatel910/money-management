@@ -27,10 +27,17 @@ import {
   featureFlagsToRecord,
   isFeatureKey,
 } from "./featureFlags.ts";
+import {
+  advanceRecurringBillDueDate,
+  getRecurringBillStatus,
+  recurringBillToTransactionInput,
+  summarizeRecurringBills,
+} from "./recurringBills.ts";
 import type {
   Account,
   Budget,
   MoneyTransaction,
+  RecurringBill,
   TransactionCategory,
   TransactionInput,
 } from "@/types/money";
@@ -632,6 +639,7 @@ test("feature flags default every feature to enabled", () => {
   assert.equal(DEFAULT_FEATURE_FLAGS.bankStatementOcr, true);
   assert.equal(DEFAULT_FEATURE_FLAGS.spreadsheetImport, true);
   assert.equal(DEFAULT_FEATURE_FLAGS.exports, true);
+  assert.equal(DEFAULT_FEATURE_FLAGS.recurringBills, true);
 });
 
 test("feature flags merge persisted values over defaults", () => {
@@ -646,4 +654,81 @@ test("feature flags merge persisted values over defaults", () => {
 test("feature flag keys reject unsupported features", () => {
   assert.equal(isFeatureKey("bankStatementOcr"), true);
   assert.equal(isFeatureKey("madeUpFeature"), false);
+});
+
+const recurringBill = (overrides: Partial<RecurringBill> = {}): RecurringBill => ({
+  id: "bill-1",
+  name: "Rent",
+  amount: 12000,
+  account: "bank",
+  categoryId: "food",
+  subcategoryId: null,
+  frequency: "monthly",
+  nextDueDate: "2026-05-10",
+  reminderDays: 3,
+  active: true,
+  ...overrides,
+});
+
+test("recurring bill status handles upcoming due overdue and paused", () => {
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-01"),
+    "scheduled",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-08"),
+    "upcoming",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-10"),
+    "dueToday",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ nextDueDate: "2026-05-10" }), "2026-05-11"),
+    "overdue",
+  );
+  assert.equal(
+    getRecurringBillStatus(recurringBill({ active: false }), "2026-05-11"),
+    "paused",
+  );
+});
+
+test("recurring bill due date advances by frequency", () => {
+  assert.equal(advanceRecurringBillDueDate("2026-05-10", "weekly"), "2026-05-17");
+  assert.equal(advanceRecurringBillDueDate("2026-01-31", "monthly"), "2026-02-28");
+  assert.equal(advanceRecurringBillDueDate("2026-05-10", "yearly"), "2027-05-10");
+});
+
+test("recurring bill converts to expense transaction input", () => {
+  assert.deepEqual(
+    recurringBillToTransactionInput(recurringBill(), "2026-05-08"),
+    {
+      type: "expense",
+      amount: 12000,
+      account: "bank",
+      categoryId: "food",
+      subcategoryId: "",
+      note: "Bill paid: Rent",
+      transactionDate: "2026-05-10",
+      transactionTime: "00:00",
+      entryDate: "2026-05-08",
+      entryTime: "00:00",
+    },
+  );
+});
+
+test("recurring bill summary totals due and overdue alerts", () => {
+  const summary = summarizeRecurringBills(
+    [
+      recurringBill({ id: "1", nextDueDate: "2026-05-08", amount: 100 }),
+      recurringBill({ id: "2", nextDueDate: "2026-05-07", amount: 200 }),
+      recurringBill({ id: "3", nextDueDate: "2026-05-11", amount: 300 }),
+    ],
+    "2026-05-08",
+  );
+
+  assert.equal(summary.dueToday, 1);
+  assert.equal(summary.overdue, 1);
+  assert.equal(summary.upcoming, 1);
+  assert.equal(summary.overdueAmount, 200);
 });

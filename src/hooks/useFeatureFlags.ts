@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_FEATURE_FLAGS,
   featureFlagsToRecord,
@@ -23,7 +23,7 @@ export function useFeatureFlags(): FeatureFlagsState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -43,10 +43,41 @@ export function useFeatureFlags(): FeatureFlagsState {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+
+    fetch("/api/features", { credentials: "same-origin" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Feature flags failed with ${response.status}`);
+        }
+        return response.json() as Promise<FeatureFlag[]>;
+      })
+      .then((featureFlags) => {
+        if (!cancelled) {
+          setRecords(featureFlags);
+        }
+      })
+      .catch((refreshError: unknown) => {
+        if (!cancelled) {
+          setError(
+            refreshError instanceof Error
+              ? refreshError.message
+              : "Failed to load feature flags.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const flags = useMemo(

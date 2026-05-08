@@ -23,6 +23,7 @@ import {
   transactionsToCsv,
 } from "../lib/moneyAnalytics";
 import { getCurrentBudgetMonth } from "../lib/budgetAnalytics";
+import { summarizeRecurringBills } from "../lib/recurringBills";
 import {
   exportSummaryWorkbook,
   exportTransactionsWorkbook,
@@ -61,6 +62,7 @@ export default function Reports() {
     accounts,
     categories,
     budgets,
+    recurringBills,
     dispatch,
     transactionsStatus,
     transactionsError,
@@ -70,6 +72,8 @@ export default function Reports() {
     categoriesError,
     budgetsStatus,
     budgetsError,
+    recurringBillsStatus,
+    recurringBillsError,
   } = useAppData();
   const [filters, setFilters] = useState<ReportFilters>({ type: "all" });
   const [previewRows, setPreviewRows] = useState<TransactionImportPreviewRow[]>([]);
@@ -119,6 +123,10 @@ export default function Reports() {
       included: previewRows.filter((row) => row.include && row.transaction).length,
     }),
     [previewRows],
+  );
+  const billSummary = useMemo(
+    () => summarizeRecurringBills(recurringBills),
+    [recurringBills],
   );
 
   const updateFilter = (key: keyof ReportFilters, value: string) => {
@@ -227,10 +235,12 @@ export default function Reports() {
     accountsStatus === "idle" ||
     categoriesStatus === "idle" ||
     budgetsStatus === "idle" ||
+    recurringBillsStatus === "idle" ||
     transactionsStatus === "loading" ||
     accountsStatus === "loading" ||
     categoriesStatus === "loading" ||
-    budgetsStatus === "loading"
+    budgetsStatus === "loading" ||
+    recurringBillsStatus === "loading"
   ) {
     return <Loading text="Loading reports..." />;
   }
@@ -239,11 +249,18 @@ export default function Reports() {
     transactionsStatus === "failed" ||
     accountsStatus === "failed" ||
     categoriesStatus === "failed" ||
-    budgetsStatus === "failed"
+    budgetsStatus === "failed" ||
+    recurringBillsStatus === "failed"
   ) {
     return (
       <Failed
-        error={transactionsError || accountsError || categoriesError || budgetsError}
+        error={
+          transactionsError ||
+          accountsError ||
+          categoriesError ||
+          budgetsError ||
+          recurringBillsError
+        }
         text="Failed to load reports. Please try again later."
       />
     );
@@ -370,6 +387,18 @@ export default function Reports() {
             transactions={transactions}
             month={filters.dateFrom?.slice(0, 7) || getCurrentBudgetMonth()}
           />
+        </FeatureGate>
+
+        <FeatureGate feature="recurringBills">
+          <section className="grid gap-4 md:grid-cols-4">
+            <Metric title="Bills" value={String(billSummary.total)} />
+            <Metric title="Due Today" value={String(billSummary.dueToday)} />
+            <Metric title="Overdue Bills" value={String(billSummary.overdue)} />
+            <Metric
+              title="Overdue Amount"
+              value={formatCurrency(billSummary.overdueAmount)}
+            />
+          </section>
         </FeatureGate>
 
         <FeatureGate feature="bankStatementOcr">

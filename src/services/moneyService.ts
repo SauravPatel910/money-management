@@ -4,6 +4,8 @@ import type {
   Budget,
   BudgetInput,
   MoneyTransaction,
+  RecurringBill,
+  RecurringBillInput,
   TransactionCategory,
   TransactionCategoryInput,
   TransactionEditHistory,
@@ -15,6 +17,7 @@ export type FreshMoneyData = {
   processedTransactions: MoneyTransaction[];
   updatedAccounts: Account[];
   updatedCategories: TransactionCategory[];
+  recurringBills?: RecurringBill[];
 };
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -47,6 +50,9 @@ export const fetchCategories = async () =>
   requestJson<TransactionCategory[]>("/api/categories");
 
 export const fetchBudgets = async () => requestJson<Budget[]>("/api/budgets");
+
+export const fetchRecurringBills = async () =>
+  requestJson<RecurringBill[]>("/api/recurring-bills");
 
 export const addTransaction = async (transaction: TransactionInput) =>
   requestJson<MoneyTransaction>("/api/transactions", {
@@ -119,6 +125,33 @@ export const deleteBudget = async (id: string) => {
   });
   return id;
 };
+
+export const addRecurringBill = async (bill: RecurringBillInput) =>
+  requestJson<RecurringBill>("/api/recurring-bills", {
+    method: "POST",
+    body: JSON.stringify(bill),
+  });
+
+export const updateRecurringBill = async (
+  id: string,
+  updates: Partial<RecurringBillInput>,
+) =>
+  requestJson<RecurringBill>(`/api/recurring-bills/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+
+export const deleteRecurringBill = async (id: string) => {
+  await requestJson<{ id: string }>(`/api/recurring-bills/${id}`, {
+    method: "DELETE",
+  });
+  return id;
+};
+
+export const payRecurringBill = async (id: string) =>
+  requestJson<FreshMoneyData>(`/api/recurring-bills/${id}/pay`, {
+    method: "POST",
+  });
 
 export const addAccount = async (account: AccountInput) =>
   requestJson<Account>("/api/accounts", {

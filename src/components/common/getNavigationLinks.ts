@@ -6,7 +6,8 @@ type NavigationPage =
   | "transactions"
   | "categories"
   | "reports"
-  | "budgets";
+  | "budgets"
+  | "bills";
 
 export type NavigationLink = {
   to: string;
@@ -27,6 +28,7 @@ export const getNavigationLinks = (currentPage: NavigationPage) => {
     },
     reports: { to: "/reports", text: "Reports", feature: "reports" },
     budgets: { to: "/budgets", text: "Budgets", feature: "budgets" },
+    bills: { to: "/bills", text: "Bills", feature: "recurringBills" },
   };
 
   // Return all links except the current page

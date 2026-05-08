@@ -12,6 +12,7 @@ import TransactionForm from "../components/forms/TransactionForm";
 import DashboardCharts from "../components/dashboard/DashboardCharts";
 import RecentActivity from "../components/transactions/RecentActivity";
 import BudgetSummary from "../components/budgets/BudgetSummary";
+import UpcomingBills from "../components/bills/UpcomingBills";
 import FeatureDisabled from "../components/common/FeatureDisabled";
 import FeatureGate from "../components/common/FeatureGate";
 import { getNavigationLinks } from "../components/common/getNavigationLinks";
@@ -36,6 +37,7 @@ function Dashboard() {
     transactions,
     accounts,
     budgets,
+    recurringBills,
     dispatch,
     transactionsStatus,
     transactionsError,
@@ -45,6 +47,8 @@ function Dashboard() {
     categoriesError,
     budgetsStatus,
     budgetsError,
+    recurringBillsStatus,
+    recurringBillsError,
   } = useAppData();
   const { formatDate } = useCommonUtils();
   const currentDateTime = getCurrentIstDateTimeInputs();
@@ -108,10 +112,12 @@ function Dashboard() {
     accountsStatus === "idle" ||
     categoriesStatus === "idle" ||
     budgetsStatus === "idle" ||
+    recurringBillsStatus === "idle" ||
     (transactionsStatus === "loading" && transactions.length === 0) ||
     (accountsStatus === "loading" && accounts.length === 0) ||
     categoriesStatus === "loading" ||
-    budgetsStatus === "loading"
+    budgetsStatus === "loading" ||
+    recurringBillsStatus === "loading"
   ) {
     return <Loading />;
   }
@@ -119,11 +125,18 @@ function Dashboard() {
     transactionsStatus === "failed" ||
     accountsStatus === "failed" ||
     categoriesStatus === "failed" ||
-    budgetsStatus === "failed"
+    budgetsStatus === "failed" ||
+    recurringBillsStatus === "failed"
   ) {
     return (
       <Failed
-        error={transactionsError || accountsError || categoriesError || budgetsError}
+        error={
+          transactionsError ||
+          accountsError ||
+          categoriesError ||
+          budgetsError ||
+          recurringBillsError
+        }
         text="Failed to load dashboard data. Please try again later."
       />
     );
@@ -166,6 +179,11 @@ function Dashboard() {
             month={getCurrentBudgetMonth()}
             compact
           />
+        </div>
+      </FeatureGate>
+      <FeatureGate feature="recurringBills">
+        <div className="mb-8">
+          <UpcomingBills bills={recurringBills} dispatch={dispatch} compact />
         </div>
       </FeatureGate>
       <DashboardCharts transactions={transactions} />

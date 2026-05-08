@@ -8,6 +8,7 @@ export const FEATURE_DEFINITIONS = [
   { key: "spreadsheetImport", label: "Spreadsheet Import" },
   { key: "bankStatementOcr", label: "Bank Statement OCR Import" },
   { key: "exports", label: "CSV/XLSX Exports" },
+  { key: "recurringBills", label: "Recurring Bills" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_DEFINITIONS)[number]["key"];

@@ -5,6 +5,7 @@ import {
   selectAccounts,
   selectCategories,
   selectBudgets,
+  selectRecurringBills,
   selectTransactionsStatus,
   selectTransactionsError,
   selectAccountsStatus,
@@ -13,10 +14,13 @@ import {
   selectCategoriesError,
   selectBudgetsStatus,
   selectBudgetsError,
+  selectRecurringBillsStatus,
+  selectRecurringBillsError,
   fetchTransactionsThunk,
   fetchAccountsThunk,
   fetchCategoriesThunk,
   fetchBudgetsThunk,
+  fetchRecurringBillsThunk,
 } from "../store/transactionsSlice";
 
 export const useAppData = () => {
@@ -24,6 +28,7 @@ export const useAppData = () => {
   const accounts = useAppSelector(selectAccounts);
   const categories = useAppSelector(selectCategories);
   const budgets = useAppSelector(selectBudgets);
+  const recurringBills = useAppSelector(selectRecurringBills);
   const transactionsStatus = useAppSelector(selectTransactionsStatus);
   const transactionsError = useAppSelector(selectTransactionsError);
   const accountsStatus = useAppSelector(selectAccountsStatus);
@@ -32,6 +37,8 @@ export const useAppData = () => {
   const categoriesError = useAppSelector(selectCategoriesError);
   const budgetsStatus = useAppSelector(selectBudgetsStatus);
   const budgetsError = useAppSelector(selectBudgetsError);
+  const recurringBillsStatus = useAppSelector(selectRecurringBillsStatus);
+  const recurringBillsError = useAppSelector(selectRecurringBillsError);
   const dispatch = useAppDispatch();
 
   useEffect(() => {
@@ -50,13 +57,25 @@ export const useAppData = () => {
     if (budgetsStatus === "idle") {
       dispatch(fetchBudgetsThunk());
     }
-  }, [accountsStatus, budgetsStatus, categoriesStatus, transactionsStatus, dispatch]);
+
+    if (recurringBillsStatus === "idle") {
+      dispatch(fetchRecurringBillsThunk());
+    }
+  }, [
+    accountsStatus,
+    budgetsStatus,
+    categoriesStatus,
+    recurringBillsStatus,
+    transactionsStatus,
+    dispatch,
+  ]);
 
   return {
     transactions,
     accounts,
     categories,
     budgets,
+    recurringBills,
     transactionsStatus,
     transactionsError,
     accountsStatus,
@@ -65,6 +84,8 @@ export const useAppData = () => {
     categoriesError,
     budgetsStatus,
     budgetsError,
+    recurringBillsStatus,
+    recurringBillsError,
     dispatch,
   };
 };

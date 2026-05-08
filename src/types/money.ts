@@ -109,6 +109,53 @@ export type BudgetInput = {
   alertThreshold?: number;
 };
 
+export type RecurringBillFrequency = "weekly" | "monthly" | "yearly";
+export type RecurringBillStatus =
+  | "scheduled"
+  | "upcoming"
+  | "dueToday"
+  | "overdue"
+  | "paid"
+  | "paused";
+
+export type RecurringBillPayment = {
+  id: string;
+  billId: string;
+  transactionId: string;
+  occurrenceDate: string;
+  paidAt: string;
+};
+
+export type RecurringBill = {
+  id: string;
+  name: string;
+  amount: number;
+  account: string;
+  categoryId: string;
+  subcategoryId?: string | null;
+  frequency: RecurringBillFrequency;
+  nextDueDate: string;
+  reminderDays: number;
+  active: boolean;
+  category?: TransactionCategorySummary | null;
+  subcategory?: TransactionCategorySummary | null;
+  payments?: RecurringBillPayment[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type RecurringBillInput = {
+  name: string;
+  amount: number;
+  account: string;
+  categoryId: string;
+  subcategoryId?: string | null;
+  frequency: RecurringBillFrequency;
+  nextDueDate: string;
+  reminderDays?: number;
+  active?: boolean;
+};
+
 export type TransactionFormFieldName =
   | "type"
   | "amount"
