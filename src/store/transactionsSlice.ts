@@ -5,6 +5,7 @@ import type {
   AccountInput,
   Budget,
   BudgetInput,
+  MoneyDataSnapshot,
   MoneyTransaction,
   RecurringBill,
   RecurringBillInput,
@@ -38,6 +39,7 @@ import {
   updateRecurringBill,
   deleteRecurringBill,
   payRecurringBill,
+  fetchMoneyData,
 } from "../services/moneyService";
 import {
   calculateSummary,
@@ -74,25 +76,17 @@ type UpdateTransactionPayload = { id: string } & Partial<TransactionInput>;
 type UpdateCategoryPayload = { id: string } & Partial<TransactionCategoryInput>;
 type UpdateBudgetPayload = { id: string } & Partial<BudgetInput>;
 type UpdateRecurringBillPayload = { id: string } & Partial<RecurringBillInput>;
-type FreshDataPayload = {
-  processedTransactions: MoneyTransaction[];
-  updatedAccounts: Account[];
-  updatedCategories: TransactionCategory[];
-  recurringBills?: RecurringBill[];
-};
 
-const fetchFreshMoneyData = async (): Promise<FreshDataPayload> => {
-  const [processedTransactions, updatedAccounts, updatedCategories] =
-    await Promise.all([
-    fetchTransactions(),
-    fetchAccounts(),
-    fetchCategories(),
-  ]);
-
-  return { processedTransactions, updatedAccounts, updatedCategories };
-};
+const fetchFreshMoneyData = async (): Promise<MoneyDataSnapshot> => fetchMoneyData();
 
 // Create async thunks for server-backed operations
+export const fetchMoneyDataThunk = createAsyncThunk(
+  "transactions/fetchMoneyData",
+  async () => {
+    return await fetchMoneyData();
+  },
+);
+
 export const fetchTransactionsThunk = createAsyncThunk(
   "transactions/fetchTransactions",
   async () => {
@@ -147,7 +141,8 @@ export const updateTransactionThunk = createAsyncThunk(
 export const importTransactionsThunk = createAsyncThunk(
   "transactions/importTransactions",
   async (transactions: TransactionInput[]) => {
-    return await importTransactions(transactions);
+    await importTransactions(transactions);
+    return fetchFreshMoneyData();
   },
 );
 
@@ -275,7 +270,8 @@ export const deleteRecurringBillThunk = createAsyncThunk(
 export const payRecurringBillThunk = createAsyncThunk(
   "transactions/payRecurringBill",
   async (id: string) => {
-    return await payRecurringBill(id);
+    await payRecurringBill(id);
+    return fetchFreshMoneyData();
   },
 );
 
@@ -315,22 +311,40 @@ const updateTransactions = (
 
 const applyFreshMoneyData = (
   state: TransactionsState,
-  payload: FreshDataPayload,
+  payload: MoneyDataSnapshot,
 ) => {
-  updateTransactions(state, payload.processedTransactions);
-  state.accounts = payload.updatedAccounts;
-  state.categories = payload.updatedCategories;
+  updateTransactions(state, payload.transactions);
+  state.accounts = payload.accounts;
+  state.categories = payload.categories;
+  state.budgets = payload.budgets;
+  state.recurringBills = payload.recurringBills;
   state.transactionsStatus = "succeeded";
   state.transactionsError = null;
   state.accountsStatus = "succeeded";
   state.accountsError = null;
   state.categoriesStatus = "succeeded";
   state.categoriesError = null;
-  if (payload.recurringBills) {
-    state.recurringBills = payload.recurringBills;
-    state.recurringBillsStatus = "succeeded";
-    state.recurringBillsError = null;
-  }
+  state.budgetsStatus = "succeeded";
+  state.budgetsError = null;
+  state.recurringBillsStatus = "succeeded";
+  state.recurringBillsError = null;
+};
+
+const setMoneyDataStatus = (
+  state: TransactionsState,
+  status: RequestStatus,
+  error: string | null,
+) => {
+  state.transactionsStatus = status;
+  state.transactionsError = error;
+  state.accountsStatus = status;
+  state.accountsError = error;
+  state.categoriesStatus = status;
+  state.categoriesError = error;
+  state.budgetsStatus = status;
+  state.budgetsError = error;
+  state.recurringBillsStatus = status;
+  state.recurringBillsError = error;
 };
 
 export const transactionsSlice = createSlice({
@@ -344,6 +358,17 @@ export const transactionsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Fetch Money Data Snapshot
+      .addCase(fetchMoneyDataThunk.pending, (state) => {
+        setMoneyDataStatus(state, "loading", null);
+      })
+      .addCase(fetchMoneyDataThunk.fulfilled, (state, action) => {
+        applyFreshMoneyData(state, action.payload);
+      })
+      .addCase(fetchMoneyDataThunk.rejected, (state, action) => {
+        setMoneyDataStatus(state, "failed", action.error.message ?? null);
+      })
+
       // Fetch Transactions
       .addCase(fetchTransactionsThunk.pending, (state) => {
         state.transactionsStatus = "loading";

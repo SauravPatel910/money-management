@@ -982,6 +982,25 @@ export async function listRecurringBills(userId: string) {
   return bills.map(recurringBillFromDb);
 }
 
+export async function getMoneyDataSnapshot(userId: string) {
+  const [transactions, accounts, categories, budgets, recurringBills] =
+    await Promise.all([
+      listTransactions(userId),
+      listAccounts(userId),
+      listCategories(userId),
+      listBudgets(userId),
+      listRecurringBills(userId),
+    ]);
+
+  return {
+    transactions,
+    accounts,
+    categories,
+    budgets,
+    recurringBills,
+  };
+}
+
 export async function createRecurringBill(
   userId: string,
   bill: RecurringBillInput,

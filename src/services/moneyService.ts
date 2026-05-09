@@ -4,6 +4,7 @@ import type {
   Budget,
   BudgetInput,
   MoneyTransaction,
+  MoneyDataSnapshot,
   RecurringBill,
   RecurringBillInput,
   TransactionCategory,
@@ -53,6 +54,9 @@ export const fetchBudgets = async () => requestJson<Budget[]>("/api/budgets");
 
 export const fetchRecurringBills = async () =>
   requestJson<RecurringBill[]>("/api/recurring-bills");
+
+export const fetchMoneyData = async () =>
+  requestJson<MoneyDataSnapshot>("/api/money-data");
 
 export const addTransaction = async (transaction: TransactionInput) =>
   requestJson<MoneyTransaction>("/api/transactions", {
