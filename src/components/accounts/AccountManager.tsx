@@ -8,6 +8,9 @@ import {
   deleteAccountThunk,
 } from "../../store/transactionsSlice";
 import Input from "../forms/Input";
+import Select from "../forms/Select";
+import StatusMessage from "../UI/StatusMessage";
+import ConfirmDialog from "../UI/ConfirmDialog";
 import type { Account, AccountFormState } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
 
@@ -130,16 +133,13 @@ const AccountIcon = memo(({ type }: { type: string }) => {
   }
 });
 
-// Account Type Options Component
-const AccountTypeOptions = memo(() => (
-  <>
-    <option value="bank">Bank Account</option>
-    <option value="credit">Credit Card</option>
-    <option value="savings">Savings</option>
-    <option value="investment">Investment</option>
-    <option value="wallet">Digital Wallet</option>
-  </>
-));
+const accountTypeOptions = [
+  { value: "bank", label: "Bank Account" },
+  { value: "credit", label: "Bank Account" },
+  { value: "savings", label: "Savings" },
+  { value: "investment", label: "Investment" },
+  { value: "wallet", label: "Digital Wallet" },
+];
 
 // Add Account Form Component
 const AddAccountForm = memo(
@@ -166,7 +166,7 @@ const AddAccountForm = memo(
             type="text"
             value={newAccount.name}
             onChange={handleInputChange}
-            placeholder="e.g. Savings Account, Credit Card"
+            placeholder="e.g. Cash at Home, Primary Bank"
             required
           />
         </div>
@@ -182,17 +182,15 @@ const AddAccountForm = memo(
           />
         </div>
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-medium text-primary-700">
-            Account Type
-          </label>
-          <select
+          <Select
+            label="Account Type"
             name="icon"
             value={newAccount.icon}
             onChange={handleInputChange}
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm capitalize shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-          >
-            <AccountTypeOptions />
-          </select>
+            options={accountTypeOptions}
+            buttonClassName="h-[46px] rounded-lg border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500"
+            labelClassName="text-primary-700"
+          />
         </div>
         <div className="flex justify-end space-x-2">
           <button
@@ -257,17 +255,15 @@ const EditAccountForm = memo(
         </div>
         {account.id !== "cash" && (
           <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-primary-700">
-              Account Type
-            </label>
-            <select
+            <Select
+              label="Account Type"
               name="icon"
               value={account.icon}
               onChange={(e) => handleInputChange(e, account.id)}
-              className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm capitalize shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-            >
-              <AccountTypeOptions />
-            </select>
+              options={accountTypeOptions}
+              buttonClassName="h-[46px] rounded-lg border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500"
+              labelClassName="text-primary-700"
+            />
           </div>
         )}
         <div className="flex justify-end space-x-2">
@@ -543,9 +539,18 @@ const AccountManager = () => {
       </div>
 
       {accountMessage && (
-        <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+        <StatusMessage
+          className="mb-4"
+          tone={
+            accountMessage.includes("Cannot") ||
+            accountMessage.includes("cannot") ||
+            accountMessage.includes("Please")
+              ? "warning"
+              : "success"
+          }
+        >
           {accountMessage}
-        </div>
+        </StatusMessage>
       )}
 
       {/* Add Account Form */}
@@ -586,30 +591,17 @@ const AccountManager = () => {
                 onDelete={() => handleDeleteAccount(account.id)}
               />
             )}
-            {pendingDeleteAccountId === account.id && (
-              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
-                <span>Delete account "{account.name}"?</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
-                    onClick={handleConfirmDeleteAccount}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
-                    onClick={handleCancelDeleteAccount}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteAccountId)}
+        title="Delete account?"
+        description="This account will be permanently removed. Accounts with transactions cannot be deleted."
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDeleteAccount}
+        onCancel={handleCancelDeleteAccount}
+      />
     </div>
   );
 };

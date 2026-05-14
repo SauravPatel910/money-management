@@ -156,6 +156,14 @@ export type RecurringBillInput = {
   active?: boolean;
 };
 
+export type MoneyDataSnapshot = {
+  transactions: MoneyTransaction[];
+  accounts: Account[];
+  categories: TransactionCategory[];
+  budgets: Budget[];
+  recurringBills: RecurringBill[];
+};
+
 export type TransactionFormFieldName =
   | "type"
   | "amount"

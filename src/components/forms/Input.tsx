@@ -1,5 +1,6 @@
 import { memo } from "react";
 import type { ChangeEventHandler, HTMLInputTypeAttribute } from "react";
+import DatePicker from "./DatePicker";
 
 type InputProps = {
   label: string;
@@ -24,13 +25,28 @@ const Input = ({
   step,
   disabled = false,
 }: InputProps) => {
+  if (type === "date" || type === "month") {
+    return (
+      <DatePicker
+        label={label}
+        name={name}
+        value={String(value)}
+        onChange={onChange}
+        mode={type === "month" ? "month" : "date"}
+        required={required}
+        disabled={disabled}
+      />
+    );
+  }
+
   return (
     <>
       <label
         htmlFor={name}
-        className="mb-2 block text-sm font-medium text-primary-700"
+        className="mb-2 block text-sm font-medium text-[#343c6a]"
       >
         {label}
+        {required && <span className="ml-1 text-[#ff4b4a]">*</span>}
       </label>
       <input
         type={type}
@@ -42,7 +58,7 @@ const Input = ({
         required={required}
         step={step}
         disabled={disabled}
-        className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+        className="h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-5 text-[15px] text-[#343c6a] outline-none transition-colors placeholder:text-[#8ba3cb] focus:border-[#2d60ff] disabled:cursor-not-allowed disabled:bg-[#f5f7fa] disabled:text-[#718ebf]"
       />
     </>
   );

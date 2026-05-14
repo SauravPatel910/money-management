@@ -33,10 +33,10 @@ type DashboardChartsProps = {
 };
 
 const typeColors: Record<string, string> = {
-  income: "#16a34a",
-  expense: "#dc2626",
-  transfer: "#2563eb",
-  person: "#7c3aed",
+  income: "#16dbcc",
+  expense: "#ff82ac",
+  transfer: "#1814f3",
+  person: "#ffbb38",
 };
 
 const moneyTooltipFormatter = (value: unknown) =>
@@ -69,65 +69,40 @@ const DashboardCharts = ({ transactions }: DashboardChartsProps) => {
   }
 
   return (
-    <div className="mb-8 grid gap-6 xl:grid-cols-2">
-      <ChartPanel title="Category Breakdown">
-        <ResponsiveContainer width="100%" height={280}>
+    <div className="mb-8 grid gap-6 xl:grid-cols-[minmax(0,730px)_minmax(320px,1fr)]">
+      <ChartPanel title="Weekly Activity" wide>
+        <ResponsiveContainer width="100%" height={260}>
           <BarChart data={categoryBreakdown}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
-            <XAxis dataKey="categoryName" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+            <CartesianGrid vertical={false} stroke="#f3f3f5" />
+            <XAxis
+              dataKey="categoryName"
+              tick={{ fontSize: 12, fill: "#718ebf" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={(value) => `${Number(value) / 1000}k`}
+              tick={{ fontSize: 12, fill: "#718ebf" }}
+              axisLine={false}
+              tickLine={false}
+            />
             <Tooltip formatter={moneyTooltipFormatter} />
-            <Legend />
-            <Bar dataKey="income" name="Income" fill="#16a34a" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="expense" name="Expense" fill="#dc2626" radius={[6, 6, 0, 0]} />
+            <Legend iconType="circle" />
+            <Bar dataKey="income" name="Deposit" fill="#1814f3" radius={[30, 30, 30, 30]} barSize={15} />
+            <Bar dataKey="expense" name="Withdraw" fill="#16dbcc" radius={[30, 30, 30, 30]} barSize={15} />
           </BarChart>
         </ResponsiveContainer>
       </ChartPanel>
 
-      <ChartPanel title="Monthly Cashflow">
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={monthlyCashflow}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
-            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
-            <Tooltip formatter={moneyTooltipFormatter} />
-            <Legend />
-            <Area type="monotone" dataKey="income" name="Income" stroke="#16a34a" fill="#bbf7d0" />
-            <Area type="monotone" dataKey="expense" name="Expense" stroke="#dc2626" fill="#fecaca" />
-            <Area type="monotone" dataKey="net" name="Net" stroke="#2563eb" fill="#bfdbfe" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </ChartPanel>
-
-      <ChartPanel title="Balance Trend">
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={balanceTrend}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
-            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
-            <Tooltip formatter={moneyTooltipFormatter} />
-            <Line
-              type="monotone"
-              dataKey="balance"
-              name="Balance"
-              stroke="#4f46e5"
-              strokeWidth={3}
-              dot={{ r: 3 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartPanel>
-
-      <ChartPanel title="Transaction Type Mix">
-        <ResponsiveContainer width="100%" height={280}>
+      <ChartPanel title="Expense Statistics">
+        <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie
               data={typeMix.filter((item) => item.count > 0)}
               dataKey="amount"
               nameKey="label"
-              innerRadius={60}
-              outerRadius={100}
-              paddingAngle={3}
+              outerRadius={96}
+              paddingAngle={2}
               label
             >
               {typeMix
@@ -141,6 +116,60 @@ const DashboardCharts = ({ transactions }: DashboardChartsProps) => {
           </PieChart>
         </ResponsiveContainer>
       </ChartPanel>
+
+      <ChartPanel title="Balance Trend">
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={balanceTrend}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#dfeaf2" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 12, fill: "#718ebf" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={(value) => `${Number(value) / 1000}k`}
+              tick={{ fontSize: 12, fill: "#718ebf" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip formatter={moneyTooltipFormatter} />
+            <Line
+              type="monotone"
+              dataKey="balance"
+              name="Balance"
+              stroke="#1814f3"
+              strokeWidth={3}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartPanel>
+
+      <ChartPanel title="Monthly Cashflow">
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={monthlyCashflow}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#dfeaf2" />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 12, fill: "#718ebf" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={(value) => `${Number(value) / 1000}k`}
+              tick={{ fontSize: 12, fill: "#718ebf" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip formatter={moneyTooltipFormatter} />
+            <Legend />
+            <Area type="monotone" dataKey="income" name="Income" stroke="#16dbcc" fill="#dcfaf8" />
+            <Area type="monotone" dataKey="expense" name="Expense" stroke="#ff82ac" fill="#ffe0eb" />
+            <Area type="monotone" dataKey="net" name="Net" stroke="#1814f3" fill="#e7edff" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </ChartPanel>
     </div>
   );
 };
@@ -148,13 +177,17 @@ const DashboardCharts = ({ transactions }: DashboardChartsProps) => {
 const ChartPanel = ({
   title,
   children,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
+  wide?: boolean;
 }) => (
-  <div className="rounded-2xl border border-primary-100 bg-white/90 p-5 shadow-card">
-    <h3 className="mb-4 text-lg font-semibold text-primary-700">{title}</h3>
+  <div className={wide ? "xl:col-span-1" : ""}>
+    <h3 className="mb-4 text-[22px] font-semibold text-[#343c6a]">{title}</h3>
+    <div className="rounded-[25px] bg-white p-6">
     {children}
+    </div>
   </div>
 );
 

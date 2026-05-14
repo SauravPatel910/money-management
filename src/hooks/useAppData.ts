@@ -16,11 +16,7 @@ import {
   selectBudgetsError,
   selectRecurringBillsStatus,
   selectRecurringBillsError,
-  fetchTransactionsThunk,
-  fetchAccountsThunk,
-  fetchCategoriesThunk,
-  fetchBudgetsThunk,
-  fetchRecurringBillsThunk,
+  fetchMoneyDataThunk,
 } from "../store/transactionsSlice";
 
 export const useAppData = () => {
@@ -42,24 +38,14 @@ export const useAppData = () => {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    if (transactionsStatus === "idle") {
-      dispatch(fetchTransactionsThunk());
-    }
-
-    if (accountsStatus === "idle") {
-      dispatch(fetchAccountsThunk());
-    }
-
-    if (categoriesStatus === "idle") {
-      dispatch(fetchCategoriesThunk());
-    }
-
-    if (budgetsStatus === "idle") {
-      dispatch(fetchBudgetsThunk());
-    }
-
-    if (recurringBillsStatus === "idle") {
-      dispatch(fetchRecurringBillsThunk());
+    if (
+      transactionsStatus === "idle" ||
+      accountsStatus === "idle" ||
+      categoriesStatus === "idle" ||
+      budgetsStatus === "idle" ||
+      recurringBillsStatus === "idle"
+    ) {
+      dispatch(fetchMoneyDataThunk());
     }
   }, [
     accountsStatus,

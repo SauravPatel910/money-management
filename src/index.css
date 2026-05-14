@@ -1,6 +1,107 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+html {
+  background: #f5f7fa;
+}
+
 body {
   margin: 0;
+  background: #f5f7fa;
+  color: #232323;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: #dfe7ff;
+  color: #1814f3;
+}
+
+.rounded-2xl {
+  border-radius: 25px;
+}
+
+.rounded-xl {
+  border-radius: 18px;
+}
+
+.rounded-lg {
+  border-radius: 15px;
+}
+
+.shadow-card,
+.shadow-xl,
+.shadow-md,
+.shadow-sm {
+  box-shadow: none;
+}
+
+.border-primary-100,
+.border-primary-200,
+.border-primary-300 {
+  border-color: #dfeaf2;
+}
+
+.bg-white\/90 {
+  background-color: #ffffff;
+}
+
+.bg-primary-50,
+.bg-primary-50\/40,
+.bg-primary-50\/50,
+.bg-primary-50\/60,
+.bg-primary-100 {
+  background-color: #f5f7fa;
+}
+
+.text-primary-600,
+.text-primary-700,
+.text-primary-800 {
+  color: #343c6a;
+}
+
+.text-gray-500,
+.text-gray-600 {
+  color: #718ebf;
+}
+
+.bg-primary-600,
+.from-primary-500,
+.from-primary-600 {
+  --tw-gradient-from: #1814f3;
+  --tw-gradient-to: #2d60ff;
+  background-color: #1814f3;
+}
+
+.to-primary-600,
+.to-primary-700 {
+  --tw-gradient-to: #2d60ff;
+}
+
+.bg-expense {
+  background-color: #ff4b4a;
+}
+
+.bg-income {
+  background-color: #16dbcc;
+}
+
+.text-expense-dark {
+  color: #ff4b4a;
+}
+
+.text-income-dark {
+  color: #16dbcc;
 }

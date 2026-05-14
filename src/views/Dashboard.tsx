@@ -20,6 +20,7 @@ import { getCurrentBudgetMonth } from "../lib/budgetAnalytics";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
+import StatusMessage from "../components/UI/StatusMessage";
 import type {
   NewTransactionFormState,
   TransactionFormFieldName,
@@ -148,13 +149,18 @@ function Dashboard() {
       headerLinks={getNavigationLinks("dashboard")}
       loadingText="Loading your finances..."
     >
-      <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="mb-8 space-y-6">
         <FeatureGate feature="transactions">
           <div>
             {formMessage && (
-              <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+              <StatusMessage
+                className="mb-4"
+                tone={
+                  formMessage.includes("successfully") ? "success" : "warning"
+                }
+              >
                 {formMessage}
-              </div>
+              </StatusMessage>
             )}
             <TransactionForm
               form={form}
@@ -172,7 +178,7 @@ function Dashboard() {
         </FeatureGate>
       </div>
       <FeatureGate feature="budgets">
-        <div className="mb-8">
+        <div className="mb-8 rounded-[25px] bg-white p-6">
           <BudgetSummary
             budgets={budgets}
             transactions={transactions}
@@ -182,7 +188,7 @@ function Dashboard() {
         </div>
       </FeatureGate>
       <FeatureGate feature="recurringBills">
-        <div className="mb-8">
+        <div className="mb-8 rounded-[25px] bg-white p-6">
           <UpcomingBills bills={recurringBills} dispatch={dispatch} compact />
         </div>
       </FeatureGate>

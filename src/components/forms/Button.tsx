@@ -26,14 +26,13 @@ const Button = memo(
     isActive = false, // Relevant for 'income', 'expense', 'transfer', 'person' variants
   }: ButtonProps) => {
     let baseClasses =
-      "flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50";
+      "flex items-center justify-center rounded-[15px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50";
     let variantClasses = "";
 
     if (variant === "action") {
       baseClasses +=
-        " w-full px-6 py-3 text-center shadow-md transform hover:-translate-y-0.5 hover:shadow-lg";
-      variantClasses =
-        "bg-linear-to-r from-primary-500 to-primary-600 text-white focus:ring-primary-500";
+        " h-[50px] w-full px-6 text-center";
+      variantClasses = "bg-[#1814f3] text-white focus:ring-[#2d60ff]";
       if (disabled) {
         variantClasses = "bg-gray-400 text-gray-200 cursor-not-allowed";
         baseClasses += " shadow-none transform-none";
@@ -46,21 +45,17 @@ const Button = memo(
       if (isActive) {
         variantClasses = "text-white shadow-md";
         if (variant === "income") {
-          variantClasses +=
-            " bg-linear-to-r from-income to-income-dark focus:ring-income";
+          variantClasses += " bg-[#16dbcc] focus:ring-[#16dbcc]";
         } else if (variant === "expense") {
-          variantClasses +=
-            " bg-linear-to-r from-expense to-expense-dark focus:ring-expense";
+          variantClasses += " bg-[#ff4b4a] focus:ring-[#ff4b4a]";
         } else if (variant === "transfer") {
-          variantClasses +=
-            " bg-linear-to-r from-primary-500 to-primary-600 focus:ring-primary-500";
+          variantClasses += " bg-[#1814f3] focus:ring-[#2d60ff]";
         } else if (variant === "person") {
-          variantClasses +=
-            " bg-linear-to-r from-accent-purple to-accent-pink focus:ring-accent-purple";
+          variantClasses += " bg-[#343c6a] focus:ring-[#343c6a]";
         }
       } else {
         variantClasses =
-          "bg-gray-100 text-gray-500 hover:bg-gray-200 focus:ring-primary-300";
+          "border border-[#dfeaf2] bg-white text-[#718ebf] hover:border-[#2d60ff] hover:text-[#2d60ff] focus:ring-[#dfe7ff]";
       }
     }
 

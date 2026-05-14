@@ -11,6 +11,8 @@ import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import Failed from "../components/UI/Failed";
 import Loading from "../components/UI/Loading";
 import PageLayout from "../components/UI/PageLayout";
+import DatePicker from "../components/forms/DatePicker";
+import Select from "../components/forms/Select";
 import { useAppData } from "../hooks/useAppData";
 import {
   buildCategoryBreakdown,
@@ -274,36 +276,35 @@ export default function Reports() {
       loadingText="Loading reports..."
     >
       <div className="space-y-8">
-        <section className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
+        <section className="rounded-[25px] bg-white p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xl font-semibold text-primary-700">
+            <h3 className="text-[22px] font-semibold text-[#343c6a]">
               Report Filters
             </h3>
             <FeatureGate feature="exports">
             <div className="flex flex-wrap items-end gap-2">
-              <label className="text-sm font-medium text-primary-700">
-                File type
-                <select
-                  value={exportFormat}
-                  onChange={(event) =>
-                    setExportFormat(event.target.value as ExportFormat)
-                  }
-                  className="mt-1 block rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-                >
-                  <option value="xlsx">Excel (.xlsx)</option>
-                  <option value="csv">CSV (.csv)</option>
-                </select>
-              </label>
+              <Select
+                label="File type"
+                name="exportFormat"
+                value={exportFormat}
+                onValueChange={(value) => setExportFormat(value as ExportFormat)}
+                options={[
+                  { value: "xlsx", label: "Excel (.xlsx)" },
+                  { value: "csv", label: "CSV (.csv)" },
+                ]}
+                buttonClassName="h-[44px] px-4 text-sm"
+                containerClassName="min-w-[150px]"
+              />
               <button
                 type="button"
-                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+                className="h-[44px] rounded-[15px] bg-[#1814f3] px-4 text-sm font-medium text-white transition-colors hover:bg-[#2d60ff]"
                 onClick={downloadTransactionsReport}
               >
                 Download Transactions
               </button>
               <button
                 type="button"
-                className="rounded-lg border border-primary-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm"
+                className="h-[44px] rounded-[15px] border border-[#dfeaf2] bg-white px-4 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
                 onClick={downloadSummaryReport}
               >
                 Download Summary
@@ -325,19 +326,23 @@ export default function Reports() {
               value={filters.dateTo || ""}
               onChange={(value) => updateFilter("dateTo", value)}
             />
-            <FilterSelect
+            <Select
               label="Type"
+              name="type"
               value={filters.type || "all"}
-              onChange={(value) => updateFilter("type", value)}
+              onValueChange={(value) => updateFilter("type", value)}
+              buttonClassName="h-[44px] px-4 text-sm"
               options={transactionTypes.map((type) => ({
                 value: type,
                 label: type === "all" ? "All types" : type,
               }))}
             />
-            <FilterSelect
+            <Select
               label="Account"
+              name="accountId"
               value={filters.accountId || ""}
-              onChange={(value) => updateFilter("accountId", value)}
+              onValueChange={(value) => updateFilter("accountId", value)}
+              buttonClassName="h-[44px] px-4 text-sm"
               options={[
                 { value: "", label: "All accounts" },
                 ...accounts.map((account) => ({
@@ -346,10 +351,12 @@ export default function Reports() {
                 })),
               ]}
             />
-            <FilterSelect
+            <Select
               label="Category"
+              name="categoryId"
               value={filters.categoryId || ""}
-              onChange={(value) => updateFilter("categoryId", value)}
+              onValueChange={(value) => updateFilter("categoryId", value)}
+              buttonClassName="h-[44px] px-4 text-sm"
               options={[
                 { value: "", label: "All categories" },
                 ...categoryOptions.map((category) => ({
@@ -358,10 +365,12 @@ export default function Reports() {
                 })),
               ]}
             />
-            <FilterSelect
+            <Select
               label="Subcategory"
+              name="subcategoryId"
               value={filters.subcategoryId || ""}
-              onChange={(value) => updateFilter("subcategoryId", value)}
+              onValueChange={(value) => updateFilter("subcategoryId", value)}
+              buttonClassName="h-[44px] px-4 text-sm"
               options={[
                 { value: "", label: "All subcategories" },
                 ...subcategoryOptions.map((category) => ({
@@ -436,19 +445,19 @@ export default function Reports() {
         </section>
 
         <FeatureGate feature="spreadsheetImport">
-        <section className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
+        <section className="rounded-[25px] bg-white p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-xl font-semibold text-primary-700">
+              <h3 className="text-[22px] font-semibold text-[#343c6a]">
                 Import Transactions
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-[#718ebf]">
                 Upload CSV, XLSX, or XLS files using existing account and category names.
               </p>
             </div>
             <button
               type="button"
-              className="rounded-lg border border-primary-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm"
+              className="rounded-full border border-[#dfeaf2] bg-white px-4 py-2 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
               onClick={() =>
                 downloadTextFile("transaction-import-template.csv", buildImportTemplateCsv())
               }
@@ -457,18 +466,18 @@ export default function Reports() {
             </button>
           </div>
 
-          <label className="block rounded-xl border border-dashed border-primary-200 bg-primary-50/40 p-5 text-sm font-medium text-primary-700">
+          <label className="block rounded-[18px] border border-dashed border-[#dfeaf2] bg-[#f5f7fa] p-5 text-sm font-medium text-[#343c6a]">
             Upload file
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
-              className="mt-3 block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+              className="mt-3 block w-full text-sm text-[#718ebf] file:mr-4 file:rounded-full file:border-0 file:bg-[#1814f3] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
               onChange={handleFileChange}
             />
           </label>
 
           {importMessage && (
-            <div className="mt-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+            <div className="mt-4 rounded-[15px] border border-[#dfeaf2] bg-[#f5f7fa] px-4 py-3 text-sm font-medium text-[#343c6a]">
               {importMessage}
             </div>
           )}
@@ -482,16 +491,16 @@ export default function Reports() {
                 </div>
                 <button
                   type="button"
-                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full bg-[#1814f3] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isImporting || importCounts.included === 0}
                   onClick={handleImport}
                 >
                   {isImporting ? "Importing..." : "Import Selected"}
                 </button>
               </div>
-              <div className="overflow-x-auto rounded-xl border border-primary-100">
+              <div className="overflow-x-auto rounded-[18px] border border-[#e6eff5]">
                 <table className="w-full border-collapse text-sm">
-                  <thead className="bg-primary-50 text-left text-xs uppercase text-primary-700">
+                  <thead className="bg-[#f5f7fa] text-left text-xs text-[#718ebf]">
                     <tr>
                       <th className="px-3 py-2">Import</th>
                       <th className="px-3 py-2">Row</th>
@@ -502,7 +511,7 @@ export default function Reports() {
                       <th className="px-3 py-2">Issue</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-primary-100">
+                  <tbody className="divide-y divide-[#f2f4f7]">
                     {previewRows.map((row) => (
                       <tr key={row.rowNumber}>
                         <td className="px-3 py-2">
@@ -524,7 +533,7 @@ export default function Reports() {
                             ? formatCurrency(Number(row.transaction.amount))
                             : "-"}
                         </td>
-                        <td className="max-w-md px-3 py-2 text-gray-600">
+                        <td className="max-w-md px-3 py-2 text-[#718ebf]">
                           {row.errors.join(", ") ||
                             (row.status === "duplicate"
                               ? "Looks like an existing transaction"
@@ -556,48 +565,31 @@ const FilterInput = ({
   value: string;
   onChange: (value: string) => void;
 }) => (
-  <label className="text-sm font-medium text-primary-700">
-    {label}
-    <input
-      type={type}
+  type === "date" ? (
+    <DatePicker
+      label={label}
+      name={`report-${label.toLowerCase()}`}
       value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+      onValueChange={onChange}
+      buttonClassName="h-[44px] px-4 text-sm"
     />
-  </label>
-);
-
-const FilterSelect = ({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) => (
-  <label className="text-sm font-medium text-primary-700">
-    {label}
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm capitalize shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-    >
-      {options.map((option) => (
-        <option key={option.value || "all"} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
+  ) : (
+    <label className="text-sm font-medium text-[#343c6a]">
+      {label}
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-[44px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-4 text-sm text-[#343c6a] outline-none focus:border-[#2d60ff]"
+      />
+    </label>
+  )
 );
 
 const Metric = ({ title, value }: { title: string; value: string }) => (
-  <div className="rounded-2xl border border-primary-100 bg-white/90 p-5 shadow-card">
-    <div className="text-sm font-medium text-gray-500">{title}</div>
-    <div className="mt-2 text-2xl font-bold text-primary-700">{value}</div>
+  <div className="rounded-[25px] bg-white p-5">
+    <div className="text-sm font-medium text-[#718ebf]">{title}</div>
+    <div className="mt-2 text-2xl font-semibold text-[#343c6a]">{value}</div>
   </div>
 );
 
@@ -612,14 +604,14 @@ const ReportTable = ({
   headers: string[];
   rows: string[][];
 }) => (
-  <div className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
-    <h3 className="mb-4 text-xl font-semibold text-primary-700">{title}</h3>
+  <div className="rounded-[25px] bg-white p-6">
+    <h3 className="mb-4 text-[22px] font-semibold text-[#343c6a]">{title}</h3>
     {rows.length === 0 ? (
-      <p className="text-sm text-gray-500">{emptyText}</p>
+      <p className="text-sm text-[#718ebf]">{emptyText}</p>
     ) : (
-      <div className="overflow-x-auto rounded-xl border border-primary-100">
+      <div className="overflow-x-auto rounded-[18px] border border-[#e6eff5]">
         <table className="w-full border-collapse text-sm">
-          <thead className="bg-primary-50 text-left text-xs uppercase text-primary-700">
+          <thead className="bg-[#f5f7fa] text-left text-xs text-[#718ebf]">
             <tr>
               {headers.map((header) => (
                 <th key={header} className="px-3 py-2">
@@ -628,7 +620,7 @@ const ReportTable = ({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-primary-100">
+          <tbody className="divide-y divide-[#f2f4f7]">
             {rows.map((row) => (
               <tr key={row.join("-")}>
                 {row.map((cell, index) => (

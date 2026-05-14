@@ -9,6 +9,10 @@ import UpcomingBills from "../components/bills/UpcomingBills";
 import Failed from "../components/UI/Failed";
 import Loading from "../components/UI/Loading";
 import PageLayout from "../components/UI/PageLayout";
+import DatePicker from "../components/forms/DatePicker";
+import Select from "../components/forms/Select";
+import StatusMessage from "../components/UI/StatusMessage";
+import ConfirmDialog from "../components/UI/ConfirmDialog";
 import { useAppData } from "../hooks/useAppData";
 import {
   addRecurringBillThunk,
@@ -64,6 +68,8 @@ export default function Bills() {
   const [form, setForm] = useState<BillFormState>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingDeleteBill, setPendingDeleteBill] =
+    useState<RecurringBill | null>(null);
 
   const expenseCategories = useMemo(
     () =>
@@ -79,6 +85,18 @@ export default function Bills() {
         .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
     [categories, form.categoryId],
   );
+  const billTotals = useMemo(() => {
+    const active = recurringBills.filter((bill) => bill.active);
+    return {
+      activeCount: active.length,
+      pausedCount: recurringBills.length - active.length,
+      monthlyAmount: active.reduce((sum, bill) => {
+        if (bill.frequency === "weekly") return sum + bill.amount * 4;
+        if (bill.frequency === "yearly") return sum + bill.amount / 12;
+        return sum + bill.amount;
+      }, 0),
+    };
+  }, [recurringBills]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -130,13 +148,22 @@ export default function Bills() {
     }
   };
 
-  const removeBill = async (id: string) => {
+  const removeBill = (bill: RecurringBill) => {
+    setPendingDeleteBill(bill);
+    setMessage(null);
+  };
+
+  const confirmRemoveBill = async () => {
+    if (!pendingDeleteBill) return;
+
     try {
-      await dispatch(deleteRecurringBillThunk(id)).unwrap();
+      await dispatch(deleteRecurringBillThunk(pendingDeleteBill.id)).unwrap();
       setMessage("Bill deleted.");
-      if (editingId === id) resetForm();
+      if (editingId === pendingDeleteBill.id) resetForm();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not delete bill.");
+    } finally {
+      setPendingDeleteBill(null);
     }
   };
 
@@ -186,15 +213,43 @@ export default function Bills() {
         loadingText="Loading bills..."
       >
         <div className="space-y-8">
-          <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
-            <section className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card">
-              <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
+          <section className="grid gap-6 md:grid-cols-3">
+            <BillMetric
+              label="Active Bills"
+              value={String(billTotals.activeCount)}
+              icon="calendar"
+              tone="blue"
+            />
+            <BillMetric
+              label="Monthly Forecast"
+              value={formatCurrency(billTotals.monthlyAmount)}
+              icon="wallet"
+              tone="teal"
+            />
+            <BillMetric
+              label="Paused Bills"
+              value={String(billTotals.pausedCount)}
+              icon="pause"
+              tone="gold"
+            />
+          </section>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(320px,390px)_minmax(0,1fr)]">
+            <section className="rounded-[25px] bg-white p-6">
+              <h3 className="mb-6 border-b border-[#ebeef2] pb-4 text-[22px] font-semibold text-[#343c6a]">
                 {editingId ? "Edit Bill" : "Add Bill"}
               </h3>
               {message && (
-                <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+                <StatusMessage
+                  className="mb-4"
+                  tone={
+                    message.includes("failed") || message.includes("Could not")
+                      ? "error"
+                      : "success"
+                  }
+                >
                   {message}
-                </div>
+                </StatusMessage>
               )}
               <form onSubmit={submitBill} className="space-y-4">
                 <BillInput
@@ -286,10 +341,11 @@ export default function Bills() {
                     setForm((current) => ({ ...current, reminderDays: value }))
                   }
                 />
-                <label className="flex items-center gap-2 text-sm font-medium text-primary-700">
+                <label className="flex items-center gap-3 text-sm font-medium text-[#343c6a]">
                   <input
                     type="checkbox"
                     checked={form.active}
+                    className="h-4 w-4 accent-[#1814f3]"
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -302,13 +358,13 @@ export default function Bills() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     type="submit"
-                    className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white shadow-md"
+                    className="h-[50px] rounded-[15px] bg-[#1814f3] px-4 text-sm font-medium text-white transition-colors hover:bg-[#2d60ff]"
                   >
                     {editingId ? "Update" : "Add"}
                   </button>
                   <button
                     type="button"
-                    className="rounded-lg border border-primary-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 shadow-sm"
+                    className="h-[50px] rounded-[15px] border border-[#dfeaf2] bg-white px-4 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
                     onClick={resetForm}
                   >
                     Clear
@@ -324,19 +380,19 @@ export default function Bills() {
             />
           </div>
 
-          <section className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
-            <h3 className="mb-4 text-xl font-semibold text-primary-700">
+          <section className="rounded-[25px] bg-white p-6">
+            <h3 className="mb-4 text-[22px] font-semibold text-[#343c6a]">
               All Bills
             </h3>
             <div className="space-y-3">
               {recurringBills.map((bill) => (
                 <div
                   key={bill.id}
-                  className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-[18px] border border-[#e6eff5] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <div className="font-semibold text-primary-800">{bill.name}</div>
-                    <div className="mt-1 text-sm text-gray-500">
+                    <div className="font-semibold text-[#343c6a]">{bill.name}</div>
+                    <div className="mt-1 text-sm text-[#718ebf]">
                       {formatCurrency(bill.amount)} - {bill.frequency} - due{" "}
                       {bill.nextDueDate}
                     </div>
@@ -344,22 +400,22 @@ export default function Bills() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+                      className="rounded-full border border-[#123288] bg-white px-3 py-1.5 text-xs font-medium text-[#123288] transition-colors hover:border-[#1814f3] hover:text-[#1814f3]"
                       onClick={() => startEdit(bill)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+                      className="rounded-full border border-[#dfeaf2] bg-white px-3 py-1.5 text-xs font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
                       onClick={() => toggleActive(bill)}
                     >
                       {bill.active ? "Pause" : "Resume"}
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
-                      onClick={() => removeBill(bill.id)}
+                      className="rounded-full bg-[#ff4b4a] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#e03d3c]"
+                      onClick={() => removeBill(bill)}
                     >
                       Delete
                     </button>
@@ -367,12 +423,20 @@ export default function Bills() {
                 </div>
               ))}
               {recurringBills.length === 0 && (
-                <p className="rounded-xl border border-primary-100 bg-primary-50/40 p-5 text-sm text-gray-500">
+                <p className="rounded-[18px] border border-[#dfeaf2] bg-[#f5f7fa] p-5 text-sm text-[#718ebf]">
                   No recurring bills yet.
                 </p>
               )}
             </div>
           </section>
+          <ConfirmDialog
+            open={Boolean(pendingDeleteBill)}
+            title="Delete bill?"
+            description={`Delete "${pendingDeleteBill?.name || "this bill"}"? This recurring bill will be permanently removed.`}
+            confirmLabel="Delete"
+            onConfirm={confirmRemoveBill}
+            onCancel={() => setPendingDeleteBill(null)}
+          />
         </div>
       </PageLayout>
     </FeatureGate>
@@ -390,16 +454,27 @@ const BillInput = ({
   onChange: (value: string) => void;
   type?: string;
 }) => (
-  <label className="block text-sm font-medium text-primary-700">
-    {label}
-    <input
-      type={type}
+  type === "date" ? (
+    <DatePicker
+      label={label}
+      name={label.toLowerCase().replace(/\s+/g, "-")}
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onValueChange={onChange}
       required
-      className="mt-2 w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
     />
-  </label>
+  ) : (
+    <label className="block text-sm font-medium text-[#343c6a]">
+      {label}
+      <span className="ml-1 text-[#ff4b4a]">*</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        className="mt-2 h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-5 text-[15px] text-[#343c6a] outline-none transition-colors placeholder:text-[#8ba3cb] focus:border-[#2d60ff]"
+      />
+    </label>
+  )
 );
 
 const BillSelect = ({
@@ -413,19 +488,55 @@ const BillSelect = ({
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
 }) => (
-  <label className="block text-sm font-medium text-primary-700">
-    {label}
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      required={label !== "Subcategory"}
-      className="mt-2 w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-    >
-      {options.map((option) => (
-        <option key={option.value || "empty"} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
+  <Select
+    label={label}
+    name={label.toLowerCase().replace(/\s+/g, "-")}
+    value={value}
+    onValueChange={onChange}
+    options={options}
+    required={label !== "Subcategory"}
+  />
 );
+
+const BillMetric = ({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  icon: "calendar" | "wallet" | "pause";
+  tone: "blue" | "teal" | "gold";
+}) => {
+  const toneClass =
+    tone === "teal"
+      ? "bg-[#dcfaf8] text-[#16dbcc]"
+      : tone === "gold"
+        ? "bg-[#fff5d9] text-[#ffbb38]"
+        : "bg-[#e7edff] text-[#396aff]";
+
+  return (
+    <div className="rounded-[25px] bg-white p-5">
+      <div className="flex items-center gap-4">
+        <span className={`grid h-[55px] w-[55px] place-items-center rounded-full ${toneClass}`}>
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+            {icon === "calendar" && (
+              <path d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2Zm11 8H6v10h12V10Z" />
+            )}
+            {icon === "wallet" && (
+              <path d="M4 6h13a3 3 0 0 1 3 3v1h-5a3 3 0 0 0 0 6h5v1a3 3 0 0 1-3 3H4V6Zm11 6a1 1 0 0 0 0 2h5v-2h-5Z" />
+            )}
+            {icon === "pause" && (
+              <path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" />
+            )}
+          </svg>
+        </span>
+        <div className="min-w-0">
+          <p className="text-[15px] text-[#718ebf]">{label}</p>
+          <p className="truncate text-xl font-semibold text-[#343c6a]">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+};

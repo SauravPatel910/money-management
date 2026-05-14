@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import BalanceCard from "../accounts/BalanceCard";
-import PageHeader from "../UI/PageHeader";
 import type { NavigationLink } from "../common/getNavigationLinks";
 
 type PageLayoutProps = {
@@ -13,15 +12,12 @@ type PageLayoutProps = {
 };
 
 const PageLayout = ({
-  title,
-  headerLinks = [],
   children,
   showBalanceCard = true,
   BalanceCardComponent = BalanceCard,
 }: PageLayoutProps) => {
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader title={title} links={headerLinks} />
+    <div className="mx-auto max-w-297.5">
       {showBalanceCard && <BalanceCardComponent />}
       {children}
     </div>

@@ -1,291 +1,189 @@
 import { memo } from "react";
-import type { ReactNode } from "react";
 import { useAppSelector } from "../../config/reduxStore";
 import {
   selectAccounts,
-  selectTotalBalance,
   selectSummary,
+  selectTotalBalance,
 } from "../../store/transactionsSlice";
 import type { Account } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
 
-// Extract account icon component to optimize rendering
-const AccountIcon = memo(({ type }: { type: string }) => {
-  switch (type) {
-    case "cash":
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-    case "bank":
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-    case "credit":
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-          <path
-            fillRule="evenodd"
-            d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-    case "savings":
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-    case "investment":
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm9 4a1 1 0 10-2 0v6a1 1 0 102 0V7zm-3 2a1 1 0 10-2 0v4a1 1 0 102 0V9zm-3 3a1 1 0 10-2 0v1a1 1 0 102 0v-1z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-    case "wallet":
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z"
-            clipRule="evenodd"
-          />
-          <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
-        </svg>
-      );
-    default:
-      return (
-        <svg
-          className="h-5 w-5 text-primary-700"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-  }
-});
+const AccountIcon = ({
+  type,
+  primary = false,
+}: {
+  type: "cash" | "bank";
+  primary?: boolean;
+}) => (
+  <div
+    className={`grid h-[58px] w-[58px] place-items-center rounded-full ${
+      primary ? "bg-white/18 text-white" : "bg-[#f5f7fa] text-[#2d60ff]"
+    }`}
+  >
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+      {type === "cash" ? (
+        <path d="M4 7h16v10H4V7Zm2 2v6h12V9H6Zm6 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm-7-3a2 2 0 0 0 2-2H5v2Zm0 2v2h2a2 2 0 0 0-2-2Zm14-2V9h-2a2 2 0 0 0 2 2Zm0 2a2 2 0 0 0-2 2h2v-2Z" />
+      ) : (
+        <path d="M12 3 3 7.5V10h18V7.5L12 3ZM5 11v7H3v2h18v-2h-2v-7h-3v7h-2v-7h-4v7H8v-7H5Z" />
+      )}
+    </svg>
+  </div>
+);
 
-// Summary card component for income, expense, and cash
-type SummaryCardProps = {
-  type: "income" | "expense" | "cash";
-  title: string;
-  amount: number;
-  icon: ReactNode;
+const getAccountTitle = (account: Account | undefined, fallback: string) => {
+  if (!account) return fallback;
+  if (account.id === "cash" || account.name.toLowerCase().includes("cash")) {
+    return "Cash at Home";
+  }
+  return "Bank Account";
 };
 
-const SummaryCard = memo(({ type, title, amount, icon }: SummaryCardProps) => {
-  return (
-    <div
-      className={`col-span-1 flex rounded-2xl ${
-        type === "income"
-          ? "bg-linear-to-br from-income to-income-dark"
-          : type === "expense"
-            ? "bg-linear-to-br from-expense to-expense-dark"
-            : "bg-linear-to-br from-primary-400 to-primary-500"
-      } p-6 text-white shadow-card transition-all duration-300 hover:shadow-lg ${type === "cash" ? "hidden md:flex" : ""}`}
-    >
-      <div className="mr-6 flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
-        {icon}
+const getAccountSubtitle = (account: Account | undefined, fallback: string) =>
+  account?.name || fallback;
+
+const AccountBalanceTile = ({
+  account,
+  fallbackTitle,
+  fallbackSubtitle,
+  fallbackAmount,
+  type,
+  primary = false,
+}: {
+  account?: Account;
+  fallbackTitle: string;
+  fallbackSubtitle: string;
+  fallbackAmount: number;
+  type: "cash" | "bank";
+  primary?: boolean;
+}) => (
+  <div
+    className={`min-h-[210px] rounded-[25px] p-6 ${
+      primary
+        ? "bg-linear-to-br from-[#4c49ed] to-[#0a06f4] text-white"
+        : "border border-[#dfeaf2] bg-white text-[#343c6a]"
+    }`}
+  >
+    <div className="flex h-full flex-col justify-between gap-8">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className={`text-sm font-medium ${primary ? "text-white/75" : "text-[#718ebf]"}`}>
+            {getAccountTitle(account, fallbackTitle)}
+          </p>
+          <p className="mt-2 truncate text-[17px] font-semibold">
+            {getAccountSubtitle(account, fallbackSubtitle)}
+          </p>
+        </div>
+        <AccountIcon type={type} primary={primary} />
       </div>
       <div>
-        <div
-          className={`mb-2 ${
-            type === "income"
-              ? "text-income-light"
-              : type === "expense"
-                ? "text-expense-light"
-                : "text-primary-100"
-          }`}
-        >
-          {title}
-        </div>
-        <div className="flex items-baseline">
-          <span className="text-3xl font-bold">{formatCurrency(amount)}</span>
-        </div>
+        <p className={`text-xs font-semibold uppercase ${primary ? "text-white/65" : "text-[#718ebf]"}`}>
+          Available Balance
+        </p>
+        <p className="mt-2 text-3xl font-semibold">
+          {formatCurrency(account?.balance ?? fallbackAmount)}
+        </p>
+      </div>
+      <div
+        className={`rounded-[18px] px-4 py-3 text-sm font-medium ${
+          primary ? "bg-white/12 text-white/85" : "bg-[#f5f7fa] text-[#718ebf]"
+        }`}
+      >
+        {type === "cash"
+          ? "Physical cash balance kept at home."
+          : "Money available in your linked bank account."}
       </div>
     </div>
-  );
-});
+  </div>
+);
 
-// Account card component
-const AccountCard = memo(({ account }: { account: Account }) => {
-  return (
-    <div
-      key={account.id}
-      className="rounded-xl bg-white/90 p-4 shadow-sm transition-all duration-200 hover:shadow-md"
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center">
-          <div className="mr-3 rounded-lg bg-primary-100 p-2">
-            <AccountIcon type={account.icon} />
-          </div>
-          <h4 className="font-medium text-primary-800">{account.name}</h4>
-        </div>
-        {account.owner && (
-          <div className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
-            {account.owner}
-          </div>
-        )}
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-baseline">
-          <span className="text-2xl font-bold text-primary-700">
-            {formatCurrency(account.balance)}
-          </span>
-        </div>
+const StatPill = ({
+  label,
+  amount,
+  tone,
+}: {
+  label: string;
+  amount: number;
+  tone: "income" | "expense";
+}) => (
+  <div className="rounded-[25px] bg-white p-5">
+    <div className="flex items-center gap-4">
+      <span
+        className={`grid h-[55px] w-[55px] place-items-center rounded-full ${
+          tone === "income"
+            ? "bg-[#dcfaf8] text-[#16dbcc]"
+            : "bg-[#fff5d9] text-[#ffbb38]"
+        }`}
+      >
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+          {tone === "income" ? (
+            <path d="M12 4v11.2l4.6-4.6L18 12l-6 6-6-6 1.4-1.4 4.6 4.6V4h2Z" />
+          ) : (
+            <path d="M12 20V8.8l-4.6 4.6L6 12l6-6 6 6-1.4 1.4L14 10.8V20h-2Z" />
+          )}
+        </svg>
+      </span>
+      <div>
+        <p className="text-[15px] text-[#718ebf]">{label}</p>
+        <p className="text-xl font-semibold text-[#343c6a]">
+          {formatCurrency(amount)}
+        </p>
       </div>
     </div>
-  );
-});
+  </div>
+);
 
 const BalanceCard = () => {
   const accounts = useAppSelector(selectAccounts);
   const totalBalance = useAppSelector(selectTotalBalance);
   const summary = useAppSelector(selectSummary);
-
-  // Income and expense icons
-  const incomeIcon = (
-    <svg
-      className="h-6 w-6"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 4v16m8-8H4"
-      />
-    </svg>
-  );
-
-  const expenseIcon = (
-    <svg
-      className="h-6 w-6"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M20 12H4"
-      />
-    </svg>
-  );
+  const cashAccount =
+    accounts.find(
+      (account) =>
+        account.id === "cash" || account.name.toLowerCase().includes("cash"),
+    ) || accounts[0];
+  const bankAccount =
+    accounts.find((account) => account.id !== cashAccount?.id) || accounts[1];
 
   return (
-    <div className="mb-8 space-y-6">
-      <div className="rounded-2xl bg-linear-to-br from-primary-500 to-primary-600 p-6 text-white shadow-card transition-all duration-300 hover:shadow-lg">
-        <div className="mb-2 text-primary-200">Total Balance</div>
-        <div className="flex items-baseline">
-          <span className="text-5xl font-bold">
-            {formatCurrency(totalBalance)}
-          </span>
+    <section className="mb-8">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-[22px] font-semibold text-[#343c6a]">
+          My Money Accounts
+        </h2>
+        <span className="text-[17px] font-semibold text-[#343c6a]">
+          {accounts.length} accounts
+        </span>
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_350px]">
+        <AccountBalanceTile
+          account={cashAccount}
+          fallbackTitle="Cash at Home"
+          fallbackSubtitle="House Cash"
+          fallbackAmount={totalBalance}
+          type="cash"
+          primary
+        />
+        <AccountBalanceTile
+          account={bankAccount}
+          fallbackTitle="Bank Account"
+          fallbackSubtitle="Primary Bank"
+          fallbackAmount={0}
+          type="bank"
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <StatPill
+            label="Total Income"
+            amount={summary.totalIncome}
+            tone="income"
+          />
+          <StatPill
+            label="Total Expense"
+            amount={summary.totalExpense}
+            tone="expense"
+          />
         </div>
-
-        {accounts.length > 3 && (
-          <div className="mt-3 text-primary-100">
-            <span className="text-sm font-medium">
-              {accounts.length} active accounts
-            </span>
-          </div>
-        )}
       </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2">
-        <SummaryCard
-          type="income"
-          title="Total Income"
-          amount={summary.totalIncome}
-          icon={incomeIcon}
-        />
-        <SummaryCard
-          type="expense"
-          title="Total Expense"
-          amount={summary.totalExpense}
-          icon={expenseIcon}
-        />
-      </div>
-
-      {/* Display account cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-        {accounts.map((account) => (
-          <AccountCard key={account.id} account={account} />
-        ))}
-      </div>
-    </div>
+    </section>
   );
 };
 
