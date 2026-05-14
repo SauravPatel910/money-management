@@ -14,14 +14,16 @@ const PageHeader = ({ title, links = [] }: PageHeaderProps) => {
   const visibleLinks = links.filter((link) => isEnabled(link.feature));
 
   return (
-    <div className="mb-4 flex items-center justify-between">
-      <h1 className="text-2xl font-bold text-primary-800">{title}</h1>
-      <div className="flex gap-2">
+    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <h1 className="text-[28px] font-semibold leading-none text-[#343c6a]">
+        {title}
+      </h1>
+      <div className="flex flex-wrap gap-2">
         {visibleLinks.map(({ to, text, key }) => (
           <Link
             key={key || to}
             href={to}
-            className="transform rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            className="rounded-full border border-[#dfeaf2] bg-white px-4 py-2 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
           >
             {text}
           </Link>

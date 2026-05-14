@@ -1,254 +1,122 @@
 import { memo } from "react";
 import { useAppSelector } from "../../config/reduxStore";
-import {
-  selectAccounts,
-  selectCategories,
-} from "../../store/transactionsSlice";
+import { selectCategories } from "../../store/transactionsSlice";
 import type { MoneyTransaction } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
 
 type FormatDate = (dateString: string, timeString?: string) => string;
-type GetAccountName = (accountId: string) => string;
 
 type RecentActivityProps = {
   transactions: MoneyTransaction[];
   formatDate: FormatDate;
 };
 
-const RecentActivity = ({ transactions, formatDate }: RecentActivityProps) => {
-  const accounts = useAppSelector(selectAccounts);
-  const categories = useAppSelector(selectCategories);
+const getAmountMeta = (transaction: MoneyTransaction) => {
+  if (transaction.type === "income") {
+    return { prefix: "+", className: "text-[#41d4a8]" };
+  }
 
-  // Get account name from ID
-  const getAccountName: GetAccountName = (accountId) => {
-    const account = accounts.find((acc) => acc.id === accountId);
-    return account ? account.name : accountId;
-  };
+  if (transaction.type === "expense") {
+    return { prefix: "-", className: "text-[#ff4b4a]" };
+  }
+
+  if (transaction.type === "person") {
+    return transaction.direction === "to"
+      ? { prefix: "-", className: "text-[#ff4b4a]" }
+      : { prefix: "+", className: "text-[#41d4a8]" };
+  }
+
+  return { prefix: "", className: "text-[#1814f3]" };
+};
+
+const getIconStyles = (transaction: MoneyTransaction) => {
+  if (transaction.type === "income") {
+    return "bg-[#dcfaf8] text-[#16dbcc]";
+  }
+
+  if (transaction.type === "expense") {
+    return "bg-[#fff5d9] text-[#ffbb38]";
+  }
+
+  if (transaction.type === "person") {
+    return transaction.direction === "to"
+      ? "bg-[#ffe0eb] text-[#ff82ac]"
+      : "bg-[#dcfaf8] text-[#16dbcc]";
+  }
+
+  return "bg-[#e7edff] text-[#396aff]";
+};
+
+const RecentActivity = ({ transactions, formatDate }: RecentActivityProps) => {
+  const categories = useAppSelector(selectCategories);
+  const recentTransactions = transactions.slice(-3).reverse();
   const getCategoryName = (categoryId?: string | null) =>
     categories.find((category) => category.id === categoryId)?.name || "";
 
-  // Get the 3 most recent transactions
-  const recentTransactions = transactions.slice(-8).reverse();
-
   return (
-    <div className="h-full rounded-2xl border-r-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
-      <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
-        Recent Activity
-      </h3>
-      {transactions.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center">
-          <svg
-            className="animate-bounce-slow mb-4 h-16 w-16 text-primary-400"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <p className="mb-2 text-center text-gray-500">No transactions yet.</p>
-          <p className="text-sm font-medium text-primary-600">
-            Add your first transaction to get started!
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {recentTransactions.map((transaction) => (
-            <ActivityItem
-              key={transaction.id}
-              transaction={transaction}
-              formatDate={formatDate}
-              getAccountName={getAccountName}
-              getCategoryName={getCategoryName}
-            />
-          ))}
-          {/* <div className="pt-4 text-center">
-            <span className="inline-block cursor-pointer border-b border-dashed border-primary-300 text-sm font-medium text-primary-600 transition-colors hover:scale-105 hover:border-primary-600 hover:text-primary-800 hover:shadow-sm">
-              See all transactions below
-            </span>
-          </div> */}
-        </div>
-      )}
-    </div>
+    <section>
+      <h2 className="mb-4 text-[22px] font-semibold text-[#343c6a]">
+        Recent Transaction
+      </h2>
+      <div className="min-h-[235px] rounded-[25px] bg-white p-6">
+        {recentTransactions.length === 0 ? (
+          <div className="flex h-[187px] items-center justify-center text-sm font-medium text-[#718ebf]">
+            No transactions yet.
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {recentTransactions.map((transaction) => {
+              const amountMeta = getAmountMeta(transaction);
+              const categoryName = getCategoryName(transaction.categoryId);
+              return (
+                <div
+                  key={transaction.id}
+                  className="grid grid-cols-[55px_minmax(0,1fr)_auto] items-center gap-4"
+                >
+                  <div
+                    className={`grid h-[55px] w-[55px] place-items-center rounded-full ${getIconStyles(transaction)}`}
+                  >
+                    <svg
+                      className="h-6 w-6"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      {transaction.type === "expense" ? (
+                        <path d="M12 5v14m0-14 5 5m-5-5-5 5" />
+                      ) : transaction.type === "income" ? (
+                        <path d="M12 19V5m0 14 5-5m-5 5-5-5" />
+                      ) : (
+                        <path d="M7 7h10m0 0-3-3m3 3-3 3M17 17H7m0 0 3 3m-3-3 3-3" />
+                      )}
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-medium text-[#232323]">
+                      {transaction.note || categoryName || transaction.type}
+                    </p>
+                    <p className="mt-1 truncate text-[15px] text-[#718ebf]">
+                      {formatDate(
+                        transaction.transactionDate,
+                        transaction.transactionTime,
+                      )}
+                    </p>
+                  </div>
+                  <p
+                    className={`text-right text-base font-medium ${amountMeta.className}`}
+                  >
+                    {amountMeta.prefix}
+                    {formatCurrency(transaction.amount)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 
-// Function to get activity item background and border colors
-const getActivityItemStyles = (transaction: MoneyTransaction) => {
-  if (transaction.type === "income") {
-    return "border-l-4 border-income bg-linear-to-r from-income-light/40 to-white";
-  } else if (transaction.type === "expense") {
-    return "border-l-4 border-expense bg-linear-to-r from-expense-light/40 to-white";
-  } else if (transaction.type === "transfer") {
-    return "border-l-4 border-primary-500 bg-linear-to-r from-primary-100/40 to-white";
-  } else if (transaction.type === "person") {
-    return transaction.direction === "to"
-      ? "border-l-4 border-expense bg-linear-to-r from-expense-light/40 to-white"
-      : "border-l-4 border-income bg-linear-to-r from-income-light/40 to-white";
-  }
-  return "";
-};
-
-// Function to get activity icon background colors
-const getActivityIconStyles = (transaction: MoneyTransaction) => {
-  if (transaction.type === "income") {
-    return "bg-linear-to-br from-income to-income-dark text-white";
-  } else if (transaction.type === "expense") {
-    return "bg-linear-to-br from-expense to-expense-dark text-white";
-  } else if (transaction.type === "transfer") {
-    return "bg-linear-to-br from-primary-500 to-primary-600 text-white";
-  } else if (transaction.type === "person") {
-    return transaction.direction === "to"
-      ? "bg-linear-to-br from-expense to-expense-dark text-white"
-      : "bg-linear-to-br from-income to-income-dark text-white";
-  }
-  return "";
-};
-
-// Function to get activity amount text color
-const getActivityAmountStyles = (transaction: MoneyTransaction) => {
-  if (transaction.type === "income") {
-    return "text-income-dark";
-  } else if (transaction.type === "expense") {
-    return "text-expense-dark";
-  } else if (transaction.type === "transfer") {
-    return "text-primary-700";
-  } else if (transaction.type === "person") {
-    return transaction.direction === "to"
-      ? "text-expense-dark"
-      : "text-income-dark";
-  }
-  return "";
-};
-
-// Function to get amount prefix (+ or -)
-const getAmountPrefix = (transaction: MoneyTransaction) => {
-  if (transaction.type === "income") {
-    return "+";
-  } else if (transaction.type === "expense") {
-    return "-";
-  } else if (transaction.type === "transfer") {
-    return "↔";
-  } else if (transaction.type === "person") {
-    return transaction.direction === "to" ? "-" : "+";
-  }
-  return "";
-};
-
-// Function to get transaction description
-const getTransactionDescription = (
-  transaction: MoneyTransaction,
-  getAccountName: GetAccountName,
-) => {
-  if (transaction.type === "income" || transaction.type === "expense") {
-    return getAccountName(transaction.account || "cash");
-  } else if (transaction.type === "transfer") {
-    return `${getAccountName(transaction.from || "cash")} to ${getAccountName(transaction.to || "bank")}`;
-  } else if (transaction.type === "person") {
-    return transaction.direction === "to"
-      ? `to ${transaction.person}`
-      : `from ${transaction.person}`;
-  }
-  return "";
-};
-
-// Memoized individual activity item component
-type ActivityItemProps = {
-  transaction: MoneyTransaction;
-  formatDate: FormatDate;
-  getAccountName: GetAccountName;
-  getCategoryName: (categoryId?: string | null) => string;
-};
-
-const ActivityItem = memo(
-  ({
-    transaction,
-    formatDate,
-    getAccountName,
-    getCategoryName,
-  }: ActivityItemProps) => {
-    const categoryName = getCategoryName(transaction.categoryId);
-    return (
-      <div
-        className={`flex transform items-center justify-between rounded-xl p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${getActivityItemStyles(
-          transaction,
-        )}`}
-      >
-        <div className="flex items-center">
-          <div
-            className={`mr-3 rounded-lg p-3 shadow-md ${getActivityIconStyles(
-              transaction,
-            )}`}
-          >
-            <svg
-              className="h-5 w-5"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              {transaction.type === "income" && (
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              )}
-              {transaction.type === "expense" && (
-                <path
-                  fillRule="evenodd"
-                  d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
-                  clipRule="evenodd"
-                />
-              )}
-              {transaction.type === "transfer" && (
-                <path
-                  fillRule="evenodd"
-                  d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              )}
-              {transaction.type === "person" && (
-                <path
-                  fillRule="evenodd"
-                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                  clipRule="evenodd"
-                />
-              )}
-            </svg>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">
-              {formatDate(
-                transaction.transactionDate,
-                transaction.transactionTime,
-              )}{" "}
-              • {getTransactionDescription(transaction, getAccountName)}
-            </div>
-            {transaction.note && (
-              <div className="mt-0.5 max-w-37.5 truncate text-xs text-gray-500">
-                {transaction.note}
-              </div>
-            )}
-            {categoryName && (
-              <div className="mt-0.5 text-xs font-medium text-primary-600">
-                {categoryName}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className={`font-bold ${getActivityAmountStyles(transaction)}`}>
-          {getAmountPrefix(transaction)}
-          {formatCurrency(transaction.amount)}
-        </div>
-      </div>
-    );
-  },
-);
-
-// Export memoized component
 export default memo(RecentActivity);

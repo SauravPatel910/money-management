@@ -16,6 +16,9 @@ import type {
   TransactionCategory,
 } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
+import DatePicker from "../forms/DatePicker";
+import Select from "../forms/Select";
+import StatusMessage from "../UI/StatusMessage";
 
 type BankStatementImportProps = {
   accounts: Account[];
@@ -188,52 +191,50 @@ export default function BankStatementImport({
   };
 
   return (
-    <section className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
+    <section className="rounded-[25px] bg-white p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-xl font-semibold text-primary-700">
+          <h3 className="text-[22px] font-semibold text-[#343c6a]">
             Bank Statement OCR Import
           </h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#718ebf]">
             Upload PDF or image statements, review OCR rows, choose categories, then import.
           </p>
         </div>
-        <label className="text-sm font-medium text-primary-700">
-          Statement account
-          <select
-            value={accountId}
-            onChange={(event) => setAccountId(event.target.value)}
-            className="mt-1 block rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-          >
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label="Statement account"
+          name="statementAccountId"
+          value={accountId}
+          onValueChange={setAccountId}
+          options={accounts.map((account) => ({
+            value: account.id,
+            label: account.name,
+          }))}
+          buttonClassName="h-[44px] px-4 text-sm"
+          containerClassName="min-w-[180px]"
+        />
       </div>
 
-      <label className="block rounded-xl border border-dashed border-primary-200 bg-primary-50/40 p-5 text-sm font-medium text-primary-700">
+      <label className="block rounded-[18px] border border-dashed border-[#dfeaf2] bg-[#f5f7fa] p-5 text-sm font-medium text-[#343c6a]">
         Upload statement
         <input
           type="file"
           accept={supportedStatementExtensions}
-          className="mt-3 block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+          className="mt-3 block w-full text-sm text-[#718ebf] file:mr-4 file:rounded-full file:border-0 file:bg-[#1814f3] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
           onChange={handleFileChange}
           disabled={isExtracting}
         />
       </label>
 
       {isExtracting && (
-        <div className="mt-4 rounded-xl border border-primary-100 bg-primary-50/50 p-4">
-          <div className="mb-2 flex justify-between text-sm font-medium text-primary-700">
+        <div className="mt-4 rounded-[18px] border border-[#dfeaf2] bg-[#f5f7fa] p-4">
+          <div className="mb-2 flex justify-between text-sm font-medium text-[#343c6a]">
             <span>{ocrStatus || "Reading statement..."}</span>
             <span>{Math.round(ocrProgress)}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-primary-100">
+          <div className="h-2 overflow-hidden rounded-full bg-[#dfeaf2]">
             <div
-              className="h-full bg-primary-600"
+              className="h-full bg-[#1814f3]"
               style={{ width: `${Math.min(ocrProgress, 100)}%` }}
             />
           </div>
@@ -241,14 +242,24 @@ export default function BankStatementImport({
       )}
 
       {message && (
-        <div className="mt-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+        <StatusMessage
+          className="mt-4"
+          tone={
+            message.includes("failed") ||
+            message.includes("Could not") ||
+            message.includes("Choose") ||
+            message.includes("Select")
+              ? "warning"
+              : "success"
+          }
+        >
           {message}
-        </div>
+        </StatusMessage>
       )}
 
       {rawText && (
-        <details className="mt-4 rounded-xl border border-primary-100 bg-white p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-primary-700">
+        <details className="mt-4 rounded-[18px] border border-[#e6eff5] bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[#343c6a]">
             OCR text
           </summary>
           <textarea
@@ -257,14 +268,14 @@ export default function BankStatementImport({
               setRawText(event.target.value);
               parseTextToRows(event.target.value);
             }}
-            className="mt-3 h-40 w-full rounded-lg border border-primary-200 p-3 text-xs text-gray-700"
+            className="mt-3 h-40 w-full rounded-[15px] border border-[#dfeaf2] p-3 text-xs text-[#343c6a] outline-none"
           />
         </details>
       )}
 
       {rows.length > 0 && (
         <div className="mt-6 space-y-4">
-          <div className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-4 md:flex-row md:items-end">
+          <div className="flex flex-col gap-3 rounded-[18px] border border-[#dfeaf2] bg-[#f5f7fa] p-4 md:flex-row md:items-end">
             <CategorySelect
               label="Bulk category"
               value={bulkCategoryId}
@@ -275,33 +286,32 @@ export default function BankStatementImport({
               incomeCategories={incomeCategories}
               expenseCategories={expenseCategories}
             />
-            <label className="text-sm font-medium text-primary-700">
-              Bulk subcategory
-              <select
-                value={bulkSubcategoryId}
-                onChange={(event) => setBulkSubcategoryId(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-              >
-                <option value="">No subcategory</option>
-                {bulkSubcategoryOptions.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              label="Bulk subcategory"
+              name="bulkSubcategoryId"
+              value={bulkSubcategoryId}
+              onValueChange={setBulkSubcategoryId}
+              options={[
+                { value: "", label: "No subcategory" },
+                ...bulkSubcategoryOptions.map((category) => ({
+                  value: category.id,
+                  label: category.name,
+                })),
+              ]}
+              buttonClassName="h-[44px] px-4 text-sm"
+            />
             <button
               type="button"
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+              className="h-[44px] rounded-[15px] bg-[#1814f3] px-4 text-sm font-medium text-white transition-colors hover:bg-[#2d60ff]"
               onClick={applyBulkCategory}
             >
               Apply to Selected
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-primary-100">
+          <div className="overflow-x-auto rounded-[18px] border border-[#e6eff5]">
             <table className="w-full border-collapse text-sm">
-              <thead className="bg-primary-50 text-left text-xs uppercase text-primary-700">
+              <thead className="bg-[#f5f7fa] text-left text-xs text-[#718ebf]">
                 <tr>
                   <th className="px-3 py-2">Import</th>
                   <th className="px-3 py-2">Date</th>
@@ -313,7 +323,7 @@ export default function BankStatementImport({
                   <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-primary-100">
+              <tbody className="divide-y divide-[#f2f4f7]">
                 {rows.map((row) => {
                   const rowCategories =
                     row.type === "credit" ? incomeCategories : expenseCategories;
@@ -339,13 +349,14 @@ export default function BankStatementImport({
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <input
-                          type="date"
+                        <DatePicker
+                          label="Date"
+                          name={`statement-row-date-${row.id}`}
                           value={row.date}
-                          onChange={(event) =>
-                            setRow(row.id, { date: event.target.value })
-                          }
-                          className="w-36 rounded-lg border border-primary-200 px-2 py-1"
+                          onValueChange={(value) => setRow(row.id, { date: value })}
+                          buttonClassName="h-9 rounded-[12px] px-2 py-1 text-sm"
+                          containerClassName="w-36"
+                          labelClassName="sr-only"
                         />
                       </td>
                       <td className="min-w-64 px-3 py-2">
@@ -354,55 +365,63 @@ export default function BankStatementImport({
                           onChange={(event) =>
                             setRow(row.id, { description: event.target.value })
                           }
-                          className="w-full rounded-lg border border-primary-200 px-2 py-1"
+                          className="w-full rounded-[12px] border border-[#dfeaf2] px-2 py-1"
                         />
                       </td>
                       <td className="px-3 py-2 capitalize">{row.type}</td>
                       <td className="px-3 py-2">{formatCurrency(row.amount)}</td>
                       <td className="px-3 py-2">
-                        <select
+                        <Select
+                          label="Category"
+                          name={`row-category-${row.id}`}
                           value={row.categoryId}
-                          onChange={(event) =>
+                          onValueChange={(value) =>
                             setRow(row.id, {
-                              categoryId: event.target.value,
+                              categoryId: value,
                               subcategoryId: "",
                             })
                           }
-                          className="w-44 rounded-lg border border-primary-200 px-2 py-1"
-                        >
-                          <option value="">Choose category</option>
-                          {rowCategories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                              {category.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: "", label: "Choose category" },
+                            ...rowCategories.map((category) => ({
+                              value: category.id,
+                              label: category.name,
+                            })),
+                          ]}
+                          buttonClassName="h-9 rounded-[12px] px-2 py-1 text-sm"
+                          containerClassName="w-44"
+                          labelClassName="sr-only"
+                        />
                       </td>
                       <td className="px-3 py-2">
-                        <select
+                        <Select
+                          label="Subcategory"
+                          name={`row-subcategory-${row.id}`}
                           value={row.subcategoryId}
-                          onChange={(event) =>
-                            setRow(row.id, { subcategoryId: event.target.value })
+                          onValueChange={(value) =>
+                            setRow(row.id, { subcategoryId: value })
                           }
-                          className="w-44 rounded-lg border border-primary-200 px-2 py-1"
-                        >
-                          <option value="">No subcategory</option>
-                          {rowSubcategories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                              {category.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: "", label: "No subcategory" },
+                            ...rowSubcategories.map((category) => ({
+                              value: category.id,
+                              label: category.name,
+                            })),
+                          ]}
+                          buttonClassName="h-9 rounded-[12px] px-2 py-1 text-sm"
+                          containerClassName="w-44"
+                          labelClassName="sr-only"
+                        />
                       </td>
                       <td className="px-3 py-2">
                         {row.categoryId ? (
-                          <span className="text-primary-700">
+                            <span className="text-[#343c6a]">
                             {preview?.status === "duplicate"
                               ? "Duplicate"
                               : categoryNameById.get(row.categoryId) || "Ready"}
                           </span>
                         ) : (
-                          <span className="text-expense-dark">
+                          <span className="text-[#ff4b4a]">
                             Category required
                           </span>
                         )}
@@ -415,13 +434,13 @@ export default function BankStatementImport({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm font-medium text-gray-600">
+            <div className="text-sm font-medium text-[#718ebf]">
               {selectedPreviewRows.length} valid rows selected,{" "}
               {previewRows.filter((row) => row.status === "duplicate").length} duplicates
             </div>
             <button
               type="button"
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-[#1814f3] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isImporting || selectedPreviewRows.length === 0}
               onClick={handleImport}
             >
@@ -447,28 +466,22 @@ const CategorySelect = ({
   incomeCategories: TransactionCategory[];
   expenseCategories: TransactionCategory[];
 }) => (
-  <label className="text-sm font-medium text-primary-700">
-    {label}
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-    >
-      <option value="">Choose category</option>
-      <optgroup label="Expenses">
-        {expenseCategories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </optgroup>
-      <optgroup label="Income">
-        {incomeCategories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </optgroup>
-    </select>
-  </label>
+  <Select
+    label={label}
+    name={label.toLowerCase().replace(/\s+/g, "-")}
+    value={value}
+    onValueChange={onChange}
+    options={[
+      { value: "", label: "Choose category" },
+      ...expenseCategories.map((category) => ({
+        value: category.id,
+        label: `Expenses / ${category.name}`,
+      })),
+      ...incomeCategories.map((category) => ({
+        value: category.id,
+        label: `Income / ${category.name}`,
+      })),
+    ]}
+    buttonClassName="h-[44px] px-4 text-sm"
+  />
 );

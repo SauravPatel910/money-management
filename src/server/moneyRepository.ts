@@ -42,7 +42,6 @@ const SUPPORTED_TRANSACTION_TYPES: TransactionType[] = [
   "person",
 ];
 const DEFAULT_BILL_REMINDER_DAYS = 3;
-const FALLBACK_CATEGORY_NAME = "Uncategorized";
 const MONEY_TRANSACTION_OPTIONS = {
   maxWait: 10000,
   timeout: 30000,
@@ -511,75 +510,6 @@ async function ensureBudgetIsUnique(
   }
 }
 
-async function ensureFallbackCategories(
-  client: PrismaClientOrTransaction,
-  userId: string,
-) {
-  await Promise.all(
-    SUPPORTED_TRANSACTION_TYPES.map(async (type, index) => {
-      const existing = await client.transactionCategory.findFirst({
-        where: {
-          userId,
-          type,
-          name: FALLBACK_CATEGORY_NAME,
-          parentId: null,
-        },
-      });
-
-      if (existing) {
-        await client.transactionCategory.update({
-          where: { id: existing.id },
-          data: { isSystem: true },
-        });
-        return;
-      }
-
-      await client.transactionCategory.create({
-        data: {
-          userId,
-          type,
-          name: FALLBACK_CATEGORY_NAME,
-          isSystem: true,
-          sortOrder: index,
-        },
-      });
-    }),
-  );
-}
-
-async function getFallbackCategory(
-  client: PrismaClientOrTransaction,
-  userId: string,
-  type: TransactionType,
-) {
-  await ensureFallbackCategories(client, userId);
-  return client.transactionCategory.findFirstOrThrow({
-    where: {
-      userId,
-      type,
-      name: FALLBACK_CATEGORY_NAME,
-      parentId: null,
-      isSystem: true,
-    },
-  });
-}
-
-async function backfillMissingTransactionCategories(
-  client: PrismaClientOrTransaction,
-  userId: string,
-) {
-  await ensureFallbackCategories(client, userId);
-  await Promise.all(
-    SUPPORTED_TRANSACTION_TYPES.map(async (type) => {
-      const fallback = await getFallbackCategory(client, userId, type);
-      await client.transaction.updateMany({
-        where: { userId, type, categoryId: null },
-        data: { categoryId: fallback.id },
-      });
-    }),
-  );
-}
-
 async function validateTransactionCategoryOwnership(
   client: PrismaClientOrTransaction,
   userId: string,
@@ -620,6 +550,29 @@ async function validateTransactionCategoryOwnership(
 
   if (!subcategory) {
     throw new Error("Subcategory is not valid for this transaction");
+  }
+}
+
+async function ensureCategoryNameIsUnique(
+  userId: string,
+  category: Pick<TransactionCategoryInput, "type" | "name"> & {
+    parentId?: string | null;
+  },
+  ignoreId?: string,
+) {
+  const existing = await prisma.transactionCategory.findFirst({
+    where: {
+      userId,
+      type: category.type,
+      name: category.name.trim(),
+      parentId: category.parentId || null,
+      ...(ignoreId && { id: { not: ignoreId } }),
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error("A category with this name already exists");
   }
 }
 
@@ -688,7 +641,6 @@ export async function ensureDefaultAccounts(userId: string) {
 }
 
 export async function listCategories(userId: string) {
-  await ensureFallbackCategories(prisma, userId);
   const categories = await prisma.transactionCategory.findMany({
     where: { userId },
     orderBy: [
@@ -727,6 +679,12 @@ export async function createCategory(
     }
   }
 
+  await ensureCategoryNameIsUnique(userId, {
+    type: category.type,
+    name: category.name,
+    parentId: category.parentId || null,
+  });
+
   const created = await prisma.transactionCategory.create({
     data: {
       userId,
@@ -749,6 +707,7 @@ export async function updateCategory(
     where: { id, userId },
   });
   const nextType = updates.type ?? (existing.type as TransactionType);
+  const nextName = updates.name ?? existing.name;
   const nextParentId =
     updates.parentId !== undefined
       ? updates.parentId || null
@@ -768,6 +727,16 @@ export async function updateCategory(
     }
   }
 
+  await ensureCategoryNameIsUnique(
+    userId,
+    {
+      type: nextType,
+      name: nextName,
+      parentId: nextParentId,
+    },
+    id,
+  );
+
   const updated = await prisma.transactionCategory.update({
     where: { id },
     data: {
@@ -784,13 +753,9 @@ export async function updateCategory(
 }
 
 export async function deleteCategory(userId: string, id: string) {
-  const category = await prisma.transactionCategory.findFirstOrThrow({
+  await prisma.transactionCategory.findFirstOrThrow({
     where: { id, userId },
   });
-
-  if (category.isSystem) {
-    throw new Error("System categories cannot be deleted");
-  }
 
   const [childCount, transactionCount, recurringBillCount] = await Promise.all([
     prisma.transactionCategory.count({ where: { parentId: id, userId } }),
@@ -837,7 +802,6 @@ const listAccountsFromDb = async (
 
 export async function listAccounts(userId: string) {
   await ensureDefaultAccounts(userId);
-  await ensureFallbackCategories(prisma, userId);
   return listAccountsFromDb(prisma, userId);
 }
 
@@ -855,7 +819,6 @@ const listTransactionsFromDb = async (
 };
 
 export async function listTransactions(userId: string) {
-  await backfillMissingTransactionCategories(prisma, userId);
   return listTransactionsFromDb(prisma, userId);
 }
 
@@ -875,7 +838,6 @@ export async function listTransactionEditHistory(
 }
 
 export async function listBudgets(userId: string) {
-  await ensureFallbackCategories(prisma, userId);
   const budgets = await prisma.budget.findMany({
     where: { userId },
     include: { category: true, subcategory: true },
@@ -887,7 +849,6 @@ export async function listBudgets(userId: string) {
 
 export async function createBudget(userId: string, budget: BudgetInput) {
   validateBudgetInput(budget);
-  await ensureFallbackCategories(prisma, userId);
   await validateBudgetCategoryOwnership(prisma, userId, budget);
   await ensureBudgetIsUnique(prisma, userId, {
     ...budget,
@@ -968,7 +929,6 @@ export async function deleteBudget(userId: string, id: string) {
 
 export async function listRecurringBills(userId: string) {
   await ensureDefaultAccounts(userId);
-  await ensureFallbackCategories(prisma, userId);
   const bills = await prisma.recurringBill.findMany({
     where: { userId },
     include: {
@@ -1007,7 +967,6 @@ export async function createRecurringBill(
 ) {
   validateRecurringBillInput(bill);
   await ensureDefaultAccounts(userId);
-  await ensureFallbackCategories(prisma, userId);
   await validateRecurringBillOwnership(prisma, userId, bill);
 
   const created = await prisma.recurringBill.create({
@@ -1221,7 +1180,6 @@ export async function createTransaction(
 
   const refreshed = await prisma.$transaction(
     async (tx) => {
-      await ensureFallbackCategories(tx, userId);
       await validateTransactionCategoryOwnership(tx, userId, transaction);
       const created = await tx.transaction.create({
         data: {
@@ -1253,8 +1211,6 @@ export async function importTransactions(
 
   const refreshed = await prisma.$transaction(
     async (tx) => {
-      await ensureFallbackCategories(tx, userId);
-
       for (const transaction of transactions) {
         validateTransactionInput(transaction);
         await validateTransactionCategoryOwnership(tx, userId, transaction);

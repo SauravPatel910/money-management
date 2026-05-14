@@ -8,6 +8,8 @@ import {
   deleteCategoryThunk,
   editCategoryThunk,
 } from "../../store/transactionsSlice";
+import Select from "../forms/Select";
+import StatusMessage from "../UI/StatusMessage";
 import type {
   TransactionCategory,
   TransactionCategoryInput,
@@ -118,79 +120,79 @@ const CategoryManager = ({ categories, dispatch }: CategoryManagerProps) => {
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
-      <div className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card">
-        <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
+    <div className="grid gap-6 xl:grid-cols-[minmax(320px,390px)_minmax(0,1fr)]">
+      <div className="rounded-[25px] bg-white p-6">
+        <h3 className="mb-6 border-b border-[#ebeef2] pb-4 text-[22px] font-semibold text-[#343c6a]">
           {editingId ? "Edit Category" : "Add Category"}
         </h3>
         {message && (
-          <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+          <StatusMessage
+            className="mb-4"
+            tone={
+              message.includes("failed") || message.includes("Could not")
+                ? "error"
+                : "success"
+            }
+          >
             {message}
-          </div>
+          </StatusMessage>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block text-sm font-medium text-primary-700">
-            Type
-            <select
-              value={form.type}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  type: event.target.value as TransactionType,
-                  parentId: "",
-                }))
-              }
-              className="mt-2 w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm capitalize shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-            >
-              {transactionTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm font-medium text-primary-700">
+          <Select
+            label="Type"
+            name="categoryType"
+            value={form.type}
+            onValueChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                type: value as TransactionType,
+                parentId: "",
+              }))
+            }
+            options={transactionTypes.map((type) => ({
+              value: type,
+              label: type,
+            }))}
+          />
+          <label className="block text-sm font-medium text-[#343c6a]">
             Name
+            <span className="ml-1 text-[#ff4b4a]">*</span>
             <input
               value={form.name}
               onChange={(event) =>
                 setForm((current) => ({ ...current, name: event.target.value }))
               }
               required
-              className="mt-2 w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+              className="mt-2 h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-5 text-[15px] text-[#343c6a] outline-none transition-colors focus:border-[#2d60ff]"
             />
           </label>
-          <label className="block text-sm font-medium text-primary-700">
-            Parent Category
-            <select
-              value={form.parentId}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  parentId: event.target.value,
-                }))
-              }
-              className="mt-2 w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-            >
-              <option value="">Top-level category</option>
-              {parentOptions.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label="Parent Category"
+            name="parentId"
+            value={form.parentId}
+            onValueChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                parentId: value,
+              }))
+            }
+            options={parentOptions.map((category) => ({
+              value: category.id,
+              label: category.name,
+            }))}
+            placeholder="Top-level category"
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="submit"
-              className="rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-4 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              className="h-[50px] rounded-[15px] bg-[#1814f3] px-4 text-sm font-medium text-white transition-colors hover:bg-[#2d60ff]"
             >
               {editingId ? "Update" : "Add"}
             </button>
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-lg border border-primary-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:bg-primary-50"
+              className="h-[50px] rounded-[15px] border border-[#dfeaf2] bg-white px-4 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
             >
               Clear
             </button>
@@ -198,14 +200,14 @@ const CategoryManager = ({ categories, dispatch }: CategoryManagerProps) => {
         </form>
       </div>
 
-      <div className="rounded-2xl border-t-4 border-primary-500 bg-white/90 p-6 shadow-card">
-        <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
+      <div className="rounded-[25px] bg-white p-6">
+        <h3 className="mb-6 border-b border-[#ebeef2] pb-4 text-[22px] font-semibold text-[#343c6a]">
           Categories
         </h3>
         <div className="grid gap-4 md:grid-cols-2">
           {groupedCategories.map(({ type, parents }) => (
-            <div key={type} className="rounded-xl border border-primary-100 p-4">
-              <h4 className="mb-3 text-sm font-semibold text-primary-700 capitalize">
+            <div key={type} className="rounded-[18px] border border-[#e6eff5] p-4">
+              <h4 className="mb-3 text-sm font-semibold text-[#343c6a] capitalize">
                 {type}
               </h4>
               <div className="space-y-3">
@@ -240,54 +242,49 @@ const CategoryTreeItem = ({
   startEdit: (category: TransactionCategory) => void;
   removeCategory: (category: TransactionCategory) => void;
 }) => (
-  <div className="rounded-lg bg-primary-50/50 p-3">
+  <div className="rounded-[15px] bg-[#f5f7fa] p-3">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <div className="font-medium text-primary-800">{category.name}</div>
-        {category.isSystem && (
-          <div className="text-xs font-medium text-gray-500">System fallback</div>
-        )}
+        <div className="font-medium text-[#343c6a]">{category.name}</div>
       </div>
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700"
+          className="rounded-full border border-[#123288] bg-white px-3 py-1 text-xs font-medium text-[#123288]"
           onClick={() => startEdit(category)}
         >
           Edit
         </button>
-        {!category.isSystem && (
-          <button
-            type="button"
-            className="rounded-lg bg-expense px-3 py-1 text-xs font-medium text-white"
-            onClick={() => removeCategory(category)}
-          >
-            Delete
-          </button>
-        )}
+        <button
+          type="button"
+          className="rounded-full bg-[#ff4b4a] px-3 py-1 text-xs font-medium text-white"
+          onClick={() => removeCategory(category)}
+        >
+          Delete
+        </button>
       </div>
     </div>
     {childrenCategories.length > 0 && (
-      <div className="mt-3 space-y-2 border-l border-primary-200 pl-3">
+      <div className="mt-3 space-y-2 border-l border-[#dfeaf2] pl-3">
         {childrenCategories
           .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
           .map((child) => (
             <div
               key={child.id}
-              className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-[12px] bg-white px-3 py-2"
             >
-              <span className="text-sm text-primary-800">{child.name}</span>
+              <span className="text-sm text-[#343c6a]">{child.name}</span>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  className="rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700"
+                  className="rounded-full border border-[#123288] bg-white px-3 py-1 text-xs font-medium text-[#123288]"
                   onClick={() => startEdit(child)}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-expense px-3 py-1 text-xs font-medium text-white"
+                  className="rounded-full bg-[#ff4b4a] px-3 py-1 text-xs font-medium text-white"
                   onClick={() => removeCategory(child)}
                 >
                   Delete

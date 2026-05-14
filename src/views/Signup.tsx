@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
+import StatusMessage from "../components/UI/StatusMessage";
 
 export default function Signup() {
   const router = useRouter();
@@ -56,21 +57,21 @@ export default function Signup() {
   };
 
   return (
-    <main className="mx-auto max-w-md rounded-lg bg-white p-6 shadow-xl">
-      <h2 className="text-2xl font-bold text-primary-800">Create account</h2>
-      <p className="mt-1 text-sm text-gray-600">
+    <main className="mx-auto max-w-md rounded-[25px] bg-white p-8">
+      <h2 className="text-[28px] font-semibold text-[#343c6a]">Create account</h2>
+      <p className="mt-2 text-sm text-[#718ebf]">
         Your money data stays private to your login.
       </p>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-expense/30 bg-expense/10 px-4 py-3 text-sm text-expense-dark">
+        <StatusMessage className="mt-4" tone="error">
           {error}
-        </div>
+        </StatusMessage>
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label htmlFor="name" className="mb-2 block text-sm font-medium text-primary-700">
+          <label htmlFor="name" className="mb-2 block text-sm font-medium text-[#343c6a]">
             Name
           </label>
           <input
@@ -78,13 +79,14 @@ export default function Signup() {
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            className="h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-5 text-[15px] text-[#343c6a] outline-none transition-colors focus:border-[#2d60ff]"
           />
         </div>
 
         <div>
-          <label htmlFor="signup-email" className="mb-2 block text-sm font-medium text-primary-700">
+          <label htmlFor="signup-email" className="mb-2 block text-sm font-medium text-[#343c6a]">
             Email
+            <span className="ml-1 text-[#ff4b4a]">*</span>
           </label>
           <input
             id="signup-email"
@@ -92,13 +94,14 @@ export default function Signup() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            className="h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-5 text-[15px] text-[#343c6a] outline-none transition-colors focus:border-[#2d60ff]"
           />
         </div>
 
         <div>
-          <label htmlFor="signup-password" className="mb-2 block text-sm font-medium text-primary-700">
+          <label htmlFor="signup-password" className="mb-2 block text-sm font-medium text-[#343c6a]">
             Password
+            <span className="ml-1 text-[#ff4b4a]">*</span>
           </label>
           <input
             id="signup-password"
@@ -107,14 +110,14 @@ export default function Signup() {
             onChange={(event) => setPassword(event.target.value)}
             required
             minLength={8}
-            className="w-full rounded-lg border border-primary-300 px-4 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
+            className="h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-5 text-[15px] text-[#343c6a] outline-none transition-colors focus:border-[#2d60ff]"
           />
         </div>
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-6 py-3 text-sm font-medium text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-200"
+          className="h-[50px] w-full rounded-[15px] bg-[#1814f3] px-6 text-sm font-medium text-white transition-colors hover:bg-[#2d60ff] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-200"
         >
           {isSubmitting ? "Creating..." : "Create account"}
         </button>
@@ -123,14 +126,14 @@ export default function Signup() {
       <button
         type="button"
         onClick={() => signIn("google", { callbackUrl: "/" })}
-        className="mt-3 w-full rounded-lg border border-primary-200 bg-white px-6 py-3 text-sm font-medium text-primary-700 shadow-sm transition-all duration-200 hover:bg-primary-50"
+        className="mt-3 h-[50px] w-full rounded-[15px] border border-[#dfeaf2] bg-white px-6 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
       >
         Continue with Google
       </button>
 
-      <p className="mt-5 text-center text-sm text-gray-600">
+      <p className="mt-5 text-center text-sm text-[#718ebf]">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-primary-700 underline">
+        <Link href="/login" className="font-medium text-[#1814f3] underline">
           Sign in
         </Link>
       </p>

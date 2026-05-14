@@ -11,6 +11,7 @@ import type {
   TransactionEditHistory as TransactionEditHistoryRecord,
 } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
+import DatePicker from "../forms/DatePicker";
 
 type SortOrder = "newest" | "oldest";
 type FormatDate = (dateString: string, timeString?: string) => string;
@@ -89,13 +90,13 @@ const TransactionHistory = ({
   );
 
   return (
-    <div className="rounded-2xl border-t-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
+    <div className="rounded-[25px] bg-white p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-primary-700">
-          Transaction History
+        <h3 className="text-[22px] font-semibold text-[#343c6a]">
+          Recent Transactions
         </h3>
         <button
-          className="flex transform items-center rounded-lg bg-linear-to-r from-primary-400 to-primary-500 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors hover:-translate-y-0.5 hover:from-primary-500 hover:to-primary-600 hover:shadow-lg"
+          className="flex items-center rounded-full border border-[#dfeaf2] bg-white px-4 py-2 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
           onClick={toggleSortOrder}
         >
           <svg
@@ -111,28 +112,24 @@ const TransactionHistory = ({
       </div>
 
       {transactions.length > 0 && (
-        <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <label className="text-sm font-medium text-primary-700">
-            From
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-            />
-          </label>
-          <label className="text-sm font-medium text-primary-700">
-            To
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30 focus:outline-none"
-            />
-          </label>
+        <div className="mb-5 grid grid-cols-1 gap-3 rounded-[20px] border border-[#dfeaf2] bg-[#f5f7fa] p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <DatePicker
+            label="From"
+            name="transaction-date-from"
+            value={dateFrom}
+            onValueChange={setDateFrom}
+            buttonClassName="h-11 px-4 text-sm"
+          />
+          <DatePicker
+            label="To"
+            name="transaction-date-to"
+            value={dateTo}
+            onValueChange={setDateTo}
+            buttonClassName="h-11 px-4 text-sm"
+          />
           <button
             type="button"
-            className="rounded-lg border border-primary-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:bg-primary-50"
+            className="h-11 rounded-[15px] border border-[#dfeaf2] bg-white px-4 text-sm font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
             onClick={() => {
               setDateFrom("");
               setDateTo("");
@@ -183,40 +180,40 @@ const TransactionHistory = ({
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 shadow-md">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-linear-to-r from-primary-300/70 to-primary-100/70">
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+              <tr className="border-b border-[#e6eff5]">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Transaction Date
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Entry Date
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Details
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Category
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Amount
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Note
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Balance
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-primary-800 uppercase">
+                <th className="px-4 py-3 text-left text-[13px] font-medium text-[#718ebf]">
                   Action
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-primary-100">
+            <tbody className="divide-y divide-[#f2f4f7]">
               {filteredTransactions.map((transaction) => (
                 <Fragment key={transaction.id}>
                   <TransactionRow
@@ -255,15 +252,15 @@ const TransactionHistory = ({
 // Function to get the background color based on transaction type
 const getRowBackgroundColor = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-linear-to-r from-income-light/20 to-transparent";
+    return "bg-linear-to-r from-[#dcfaf8]/30 to-transparent";
   } else if (transaction.type === "expense") {
-    return "bg-linear-to-r from-expense-light/20 to-transparent";
+    return "bg-linear-to-r from-[#ffe0eb]/30 to-transparent";
   } else if (transaction.type === "transfer") {
-    return "bg-linear-to-r from-primary-100/30 to-transparent";
+    return "";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-linear-to-r from-expense-light/20 to-transparent"
-      : "bg-linear-to-r from-income-light/20 to-transparent";
+      ? "bg-linear-to-r from-[#ffe0eb]/30 to-transparent"
+      : "bg-linear-to-r from-[#dcfaf8]/30 to-transparent";
   }
   return "";
 };
@@ -271,15 +268,15 @@ const getRowBackgroundColor = (transaction: MoneyTransaction) => {
 // Function to get the type badge styles
 const getTypeBadgeStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "bg-linear-to-r from-income to-income-dark text-white";
+    return "bg-[#16dbcc] text-white";
   } else if (transaction.type === "expense") {
-    return "bg-linear-to-r from-expense to-expense-dark text-white";
+    return "bg-[#ff4b4a] text-white";
   } else if (transaction.type === "transfer") {
-    return "bg-linear-to-r from-primary-500 to-primary-600 text-white";
+    return "bg-[#1814f3] text-white";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "bg-linear-to-r from-expense to-expense-dark text-white"
-      : "bg-linear-to-r from-income to-income-dark text-white";
+      ? "bg-[#ff4b4a] text-white"
+      : "bg-[#16dbcc] text-white";
   }
   return "";
 };
@@ -292,7 +289,7 @@ const getTransactionDetails = (
   if (transaction.type === "income" || transaction.type === "expense") {
     return getAccountName(transaction.account || "cash");
   } else if (transaction.type === "transfer") {
-    return `${getAccountName(transaction.from || "cash")} → ${getAccountName(transaction.to || "bank")}`;
+    return `${getAccountName(transaction.from || "cash")} to ${getAccountName(transaction.to || "bank")}`;
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
       ? `to ${transaction.person} from ${getAccountName(transaction.account || "cash")}`
@@ -304,15 +301,15 @@ const getTransactionDetails = (
 // Function to get amount display styles
 const getAmountStyles = (transaction: MoneyTransaction) => {
   if (transaction.type === "income") {
-    return "text-income-dark";
+    return "text-[#16dbcc]";
   } else if (transaction.type === "expense") {
-    return "text-expense-dark";
+    return "text-[#ff4b4a]";
   } else if (transaction.type === "transfer") {
-    return "text-primary-700";
+    return "text-[#1814f3]";
   } else if (transaction.type === "person") {
     return transaction.direction === "to"
-      ? "text-expense-dark"
-      : "text-income-dark";
+      ? "text-[#ff4b4a]"
+      : "text-[#16dbcc]";
   }
   return "";
 };
@@ -324,7 +321,7 @@ const getAmountPrefix = (transaction: MoneyTransaction) => {
   } else if (transaction.type === "expense") {
     return "-";
   } else if (transaction.type === "transfer") {
-    return "↔";
+    return "";
   } else if (transaction.type === "person") {
     return transaction.direction === "to" ? "-" : "+";
   }
@@ -568,7 +565,7 @@ const TransactionRow = memo(
           {getTransactionDetails(transaction, getAccountName)}
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap">
-          <div className="font-medium text-primary-700">
+          <div className="font-medium text-[#343c6a]">
             {transaction.categoryId
               ? getCategoryName(transaction.categoryId)
               : transaction.category?.name || "-"}
@@ -674,14 +671,14 @@ const TransactionRow = memo(
         </td>
         <td className="px-4 py-3 text-sm whitespace-nowrap">
           <button
-            className="mr-2 transform rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-50 hover:shadow-md"
+            className="mr-2 rounded-full border border-[#123288] bg-white px-3 py-1 text-xs font-medium text-[#123288] transition-colors hover:border-[#1814f3] hover:text-[#1814f3]"
             onClick={() => toggleTransactionHistory(transaction.id)}
           >
             {isHistoryOpen ? "Hide" : "History"}
           </button>
           {editTransaction && (
             <button
-              className="mr-2 transform rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+              className="mr-2 rounded-full bg-[#1814f3] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#2d60ff]"
               onClick={() => editTransaction(transaction)}
             >
               <svg
@@ -701,7 +698,7 @@ const TransactionRow = memo(
             </button>
           )}
           <button
-            className="transform rounded-lg bg-linear-to-r from-expense to-expense-dark px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+            className="rounded-full bg-[#ff4b4a] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#e03d3c]"
             onClick={() => deleteTransaction(transaction.id)}
           >
             <svg

@@ -17,19 +17,19 @@ export default function AuthControls() {
   }, [dispatch, status]);
 
   if (status === "loading") {
-    return <span className="text-sm text-primary-700">Checking session...</span>;
+    return <span className="text-sm text-[#718ebf]">Checking session...</span>;
   }
 
   if (status === "authenticated") {
     return (
       <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
-        <span className="max-w-48 truncate text-primary-800">
+        <span className="max-w-48 truncate text-[#343c6a]">
           {session.user?.email}
         </span>
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="rounded-lg border border-primary-300 bg-white px-4 py-2 font-medium text-primary-700 shadow-sm transition-all duration-200 hover:bg-primary-50"
+          className="rounded-full border border-[#dfeaf2] bg-white px-4 py-2 font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
         >
           Sign out
         </button>
@@ -41,13 +41,13 @@ export default function AuthControls() {
     <div className="flex items-center justify-center gap-2 text-sm">
       <Link
         href="/login"
-        className="rounded-lg border border-primary-300 bg-white px-4 py-2 font-medium text-primary-700 shadow-sm transition-all duration-200 hover:bg-primary-50"
+        className="rounded-full border border-[#dfeaf2] bg-white px-4 py-2 font-medium text-[#343c6a] transition-colors hover:border-[#2d60ff] hover:text-[#2d60ff]"
       >
         Sign in
       </Link>
       <Link
         href="/signup"
-        className="rounded-lg bg-linear-to-r from-primary-500 to-primary-600 px-4 py-2 font-medium text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+        className="rounded-full bg-[#1814f3] px-4 py-2 font-medium text-white transition-colors hover:bg-[#2d60ff]"
       >
         Sign up
       </Link>

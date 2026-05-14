@@ -49,32 +49,32 @@ export default function DeveloperFeatures() {
 
   return (
     <PageLayout title="Feature Controls" showBalanceCard={false}>
-      <section className="rounded-2xl border border-primary-100 bg-white/90 p-6 shadow-card">
+      <section className="rounded-[25px] bg-white p-6">
         <div className="mb-5">
-          <h2 className="text-xl font-semibold text-primary-800">
+          <h2 className="text-[22px] font-semibold text-[#343c6a]">
             Global feature toggles
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#718ebf]">
             Changes apply to every user. Only developer accounts can update these
             switches.
           </p>
         </div>
 
         {(error || message) && (
-          <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+          <div className="mb-4 rounded-[15px] border border-[#dfeaf2] bg-[#f5f7fa] px-4 py-3 text-sm font-medium text-[#343c6a]">
             {message || error}
           </div>
         )}
 
-        <div className="divide-y divide-primary-100">
+        <div className="divide-y divide-[#f2f4f7]">
           {records.map((feature) => (
             <div
               key={feature.key}
               className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <div className="font-semibold text-primary-800">{feature.label}</div>
-                <div className="mt-1 text-xs uppercase tracking-wide text-gray-500">
+                <div className="font-semibold text-[#343c6a]">{feature.label}</div>
+                <div className="mt-1 text-xs uppercase text-[#718ebf]">
                   {feature.key}
                 </div>
               </div>
@@ -85,7 +85,7 @@ export default function DeveloperFeatures() {
                 disabled={pendingKey === feature.key}
                 onClick={() => toggleFeature(feature)}
                 className={`relative h-8 w-16 rounded-full transition-colors ${
-                  feature.enabled ? "bg-income" : "bg-gray-300"
+                  feature.enabled ? "bg-[#16dbcc]" : "bg-[#dfeaf2]"
                 } disabled:cursor-wait disabled:opacity-70`}
               >
                 <span

@@ -213,32 +213,72 @@ const TransactionForm = ({
       },
     };
 
-    return Object.entries(fieldMap)
-      .filter(([name]) =>
+    const visibleEntries = Object.entries(fieldMap).filter(([name]) =>
         !hiddenFields.includes(name as TransactionFormFieldName),
-      )
-      .map(([name, config]) => {
+      );
+
+    const renderField = ([name, config]: [string, FieldConfig]) => {
       const Component = config.component;
       const fieldName = name as TransactionFormFieldName;
-      const isNote = name === "note";
       const value = form[fieldName] || config.defaultValue || "";
       const onChange =
         Component === Select ? handleSelectChange : handleInputChange;
 
       return (
-        <div className={isNote ? "mb-6" : "mb-4"} key={name}>
-          <Component
-            label={config.label}
-            name={name}
-            value={value}
-            onChange={onChange as ChangeEventHandler<HTMLInputElement | HTMLSelectElement>}
-            {...(config.type && { type: config.type })}
-            {...(config.step && { step: config.step })}
-            {...(config.placeholder && { placeholder: config.placeholder })}
-            {...(config.options && { options: config.options })}
-            {...(config.required && { required: config.required })}
-            disabled={disabledFields.includes(fieldName)}
-          />
+        <Component
+          label={config.label}
+          name={name}
+          value={value}
+          onChange={onChange as ChangeEventHandler<HTMLInputElement | HTMLSelectElement>}
+          {...(config.type && { type: config.type })}
+          {...(config.step && { step: config.step })}
+          {...(config.placeholder && { placeholder: config.placeholder })}
+          {...(config.options && { options: config.options })}
+          {...(config.required && { required: config.required })}
+          disabled={disabledFields.includes(fieldName)}
+        />
+      );
+    };
+
+    const pairedRows: TransactionFormFieldName[][] = [
+      ["amount", "transactionDate"],
+      ["categoryId", "subcategoryId"],
+      ["from", "to"],
+      ["direction", "account"],
+    ];
+    const renderedNames = new Set<string>();
+
+    return visibleEntries.map(([name, config]) => {
+      if (renderedNames.has(name)) {
+        return null;
+      }
+
+      const pair = pairedRows.find((row) =>
+        row.includes(name as TransactionFormFieldName),
+      );
+
+      if (pair) {
+        const pairEntries = visibleEntries.filter(([entryName]) =>
+          pair.includes(entryName as TransactionFormFieldName),
+        );
+        pairEntries.forEach(([entryName]) => renderedNames.add(entryName));
+
+        return (
+          <div
+            className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2"
+            key={pair.join("-")}
+          >
+            {pairEntries.map((entry) => (
+              <div key={entry[0]}>{renderField(entry)}</div>
+            ))}
+          </div>
+        );
+      }
+
+      renderedNames.add(name);
+      return (
+        <div className={name === "note" ? "mb-6" : "mb-4"} key={name}>
+          {renderField([name, config])}
         </div>
       );
     });
@@ -328,13 +368,13 @@ const TransactionForm = ({
   );
 
   return (
-    <div className="rounded-2xl border-l-4 border-primary-500 bg-white/90 p-6 shadow-card backdrop-blur-md transition-all duration-300 hover:shadow-lg">
-      <h3 className="mb-6 border-b border-primary-100 pb-3 text-xl font-semibold text-primary-700">
+    <div className="rounded-[25px] bg-white p-6">
+      <h3 className="mb-6 border-b border-[#ebeef2] pb-4 text-[22px] font-semibold text-[#343c6a]">
         {title}
       </h3>
-      <form onSubmit={addTransaction}>
+      <form onSubmit={addTransaction} noValidate>
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-medium text-primary-700">
+          <label className="mb-2 block text-sm font-medium text-[#343c6a]">
             Transaction Type
           </label>
           <div className="mb-4 grid grid-cols-2 gap-2">

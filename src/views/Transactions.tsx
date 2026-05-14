@@ -26,6 +26,7 @@ import { getNavigationLinks } from "../components/common/getNavigationLinks";
 import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
+import StatusMessage from "../components/UI/StatusMessage";
 import type {
   EditTransactionFormState,
   MoneyTransaction,
@@ -287,24 +288,27 @@ function TransactionHistoryPage() {
         loadingText="Loading transaction history..."
       >
         {pageMessage && (
-          <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700">
+          <StatusMessage
+            className="mb-4"
+            tone={pageMessage.includes("successfully") ? "success" : "warning"}
+          >
             {pageMessage}
-          </div>
+          </StatusMessage>
         )}
         {pendingDeleteId && (
-          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 flex flex-col gap-3 rounded-[15px] border border-[#ffe0eb] bg-[#fff5f8] px-4 py-3 text-sm text-[#ff4b4a] sm:flex-row sm:items-center sm:justify-between">
             <span>Delete this transaction?</span>
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
+                className="rounded-full bg-[#ff4b4a] px-3 py-1.5 text-xs font-medium text-white"
                 onClick={handleConfirmDelete}
               >
                 Delete
               </button>
               <button
                 type="button"
-                className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
+                className="rounded-full border border-[#dfeaf2] bg-white px-3 py-1.5 text-xs font-medium text-[#343c6a]"
                 onClick={handleCancelDelete}
               >
                 Cancel

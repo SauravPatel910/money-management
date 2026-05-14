@@ -14,9 +14,9 @@ type BudgetSummaryProps = {
 };
 
 const statusStyles = {
-  under: "bg-income-light/40 text-income-dark",
-  near: "bg-yellow-100 text-yellow-800",
-  over: "bg-expense-light/50 text-expense-dark",
+  under: "bg-[#dcfaf8] text-[#16dbcc]",
+  near: "bg-[#fff5d9] text-[#ffbb38]",
+  over: "bg-[#ffe0eb] text-[#ff4b4a]",
 };
 
 export default function BudgetSummary({
@@ -37,9 +37,9 @@ export default function BudgetSummary({
 
   if (visibleBudgets.length === 0) {
     return (
-      <div className="rounded-2xl border border-primary-100 bg-white/90 p-5 shadow-card">
-        <h3 className="text-lg font-semibold text-primary-700">Budget Alerts</h3>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="rounded-[25px] bg-white p-5">
+        <h3 className="text-[22px] font-semibold text-[#343c6a]">Budget Alerts</h3>
+        <p className="mt-2 text-sm text-[#718ebf]">
           No budgets are set for {month}.
         </p>
       </div>
@@ -47,24 +47,24 @@ export default function BudgetSummary({
   }
 
   return (
-    <div className="rounded-2xl border border-primary-100 bg-white/90 p-5 shadow-card">
+    <div className="rounded-[25px] bg-white p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-semibold text-primary-700">Budget Alerts</h3>
-        <div className="text-sm font-medium text-gray-500">
+        <h3 className="text-[22px] font-semibold text-[#343c6a]">Budget Alerts</h3>
+        <div className="text-sm font-medium text-[#718ebf]">
           {formatCurrency(summary.totalSpent)} of{" "}
           {formatCurrency(summary.totalLimit)}
         </div>
       </div>
       <div className={compact ? "space-y-3" : "grid gap-3 md:grid-cols-2"}>
         {progress.slice(0, compact ? 4 : progress.length).map((budget) => (
-          <div key={budget.id} className="rounded-xl border border-primary-100 p-3">
+          <div key={budget.id} className="rounded-[18px] border border-[#e6eff5] p-3">
             <div className="mb-2 flex items-start justify-between gap-3">
               <div>
-                <div className="font-medium text-primary-800">
+                <div className="font-medium text-[#343c6a]">
                   {budget.category?.name || "Category"}
                 </div>
                 {budget.subcategory && (
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-[#718ebf]">
                     {budget.subcategory.name}
                   </div>
                 )}
@@ -75,19 +75,19 @@ export default function BudgetSummary({
                 {budget.status}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-primary-100">
+            <div className="h-2 overflow-hidden rounded-full bg-[#f5f7fa]">
               <div
                 className={
                   budget.status === "over"
-                    ? "h-full bg-expense"
+                    ? "h-full bg-[#ff4b4a]"
                     : budget.status === "near"
-                      ? "h-full bg-yellow-500"
-                      : "h-full bg-income"
+                      ? "h-full bg-[#ffbb38]"
+                      : "h-full bg-[#16dbcc]"
                 }
                 style={{ width: `${Math.min(budget.progressPercent, 100)}%` }}
               />
             </div>
-            <div className="mt-2 flex justify-between text-xs text-gray-600">
+            <div className="mt-2 flex justify-between text-xs text-[#718ebf]">
               <span>{formatCurrency(budget.spentAmount)} spent</span>
               <span>{formatCurrency(budget.remainingAmount)} left</span>
             </div>
@@ -95,7 +95,7 @@ export default function BudgetSummary({
         ))}
       </div>
       {compact && progress.length > 4 && (
-        <div className="mt-3 text-sm font-medium text-primary-700">
+        <div className="mt-3 text-sm font-medium text-[#343c6a]">
           {progress.length - 4} more budgets
         </div>
       )}
