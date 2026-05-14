@@ -12,6 +12,7 @@ import PageLayout from "../components/UI/PageLayout";
 import DatePicker from "../components/forms/DatePicker";
 import Select from "../components/forms/Select";
 import StatusMessage from "../components/UI/StatusMessage";
+import ConfirmDialog from "../components/UI/ConfirmDialog";
 import { useAppData } from "../hooks/useAppData";
 import {
   addRecurringBillThunk,
@@ -67,6 +68,8 @@ export default function Bills() {
   const [form, setForm] = useState<BillFormState>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingDeleteBill, setPendingDeleteBill] =
+    useState<RecurringBill | null>(null);
 
   const expenseCategories = useMemo(
     () =>
@@ -145,13 +148,22 @@ export default function Bills() {
     }
   };
 
-  const removeBill = async (id: string) => {
+  const removeBill = (bill: RecurringBill) => {
+    setPendingDeleteBill(bill);
+    setMessage(null);
+  };
+
+  const confirmRemoveBill = async () => {
+    if (!pendingDeleteBill) return;
+
     try {
-      await dispatch(deleteRecurringBillThunk(id)).unwrap();
+      await dispatch(deleteRecurringBillThunk(pendingDeleteBill.id)).unwrap();
       setMessage("Bill deleted.");
-      if (editingId === id) resetForm();
+      if (editingId === pendingDeleteBill.id) resetForm();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not delete bill.");
+    } finally {
+      setPendingDeleteBill(null);
     }
   };
 
@@ -403,7 +415,7 @@ export default function Bills() {
                     <button
                       type="button"
                       className="rounded-full bg-[#ff4b4a] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#e03d3c]"
-                      onClick={() => removeBill(bill.id)}
+                      onClick={() => removeBill(bill)}
                     >
                       Delete
                     </button>
@@ -417,6 +429,14 @@ export default function Bills() {
               )}
             </div>
           </section>
+          <ConfirmDialog
+            open={Boolean(pendingDeleteBill)}
+            title="Delete bill?"
+            description={`Delete "${pendingDeleteBill?.name || "this bill"}"? This recurring bill will be permanently removed.`}
+            confirmLabel="Delete"
+            onConfirm={confirmRemoveBill}
+            onCancel={() => setPendingDeleteBill(null)}
+          />
         </div>
       </PageLayout>
     </FeatureGate>

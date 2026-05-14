@@ -27,6 +27,7 @@ import PageLayout from "../components/UI/PageLayout";
 import Loading from "../components/UI/Loading";
 import Failed from "../components/UI/Failed";
 import StatusMessage from "../components/UI/StatusMessage";
+import ConfirmDialog from "../components/UI/ConfirmDialog";
 import type {
   EditTransactionFormState,
   MoneyTransaction,
@@ -295,27 +296,14 @@ function TransactionHistoryPage() {
             {pageMessage}
           </StatusMessage>
         )}
-        {pendingDeleteId && (
-          <div className="mb-4 flex flex-col gap-3 rounded-[15px] border border-[#ffe0eb] bg-[#fff5f8] px-4 py-3 text-sm text-[#ff4b4a] sm:flex-row sm:items-center sm:justify-between">
-            <span>Delete this transaction?</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-full bg-[#ff4b4a] px-3 py-1.5 text-xs font-medium text-white"
-                onClick={handleConfirmDelete}
-              >
-                Delete
-              </button>
-              <button
-                type="button"
-                className="rounded-full border border-[#dfeaf2] bg-white px-3 py-1.5 text-xs font-medium text-[#343c6a]"
-                onClick={handleCancelDelete}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={Boolean(pendingDeleteId)}
+          title="Delete transaction?"
+          description="This transaction will be permanently removed and account balances will be recalculated."
+          confirmLabel="Delete"
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
         {editingTransactionId && (
           <div className="mb-8">
             <TransactionForm

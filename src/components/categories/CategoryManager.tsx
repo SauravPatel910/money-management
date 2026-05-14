@@ -10,6 +10,7 @@ import {
 } from "../../store/transactionsSlice";
 import Select from "../forms/Select";
 import StatusMessage from "../UI/StatusMessage";
+import ConfirmDialog from "../UI/ConfirmDialog";
 import type {
   TransactionCategory,
   TransactionCategoryInput,
@@ -44,6 +45,8 @@ const CategoryManager = ({ categories, dispatch }: CategoryManagerProps) => {
   const [form, setForm] = useState<CategoryFormState>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingDeleteCategory, setPendingDeleteCategory] =
+    useState<TransactionCategory | null>(null);
 
   const parentOptions = useMemo(
     () =>
@@ -105,17 +108,26 @@ const CategoryManager = ({ categories, dispatch }: CategoryManagerProps) => {
     setMessage(null);
   };
 
-  const removeCategory = async (category: TransactionCategory) => {
+  const removeCategory = (category: TransactionCategory) => {
+    setPendingDeleteCategory(category);
+    setMessage(null);
+  };
+
+  const confirmRemoveCategory = async () => {
+    if (!pendingDeleteCategory) return;
+
     try {
-      await dispatch(deleteCategoryThunk(category.id)).unwrap();
+      await dispatch(deleteCategoryThunk(pendingDeleteCategory.id)).unwrap();
       setMessage("Category deleted.");
-      if (editingId === category.id) {
+      if (editingId === pendingDeleteCategory.id) {
         resetForm();
       }
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not delete category.",
       );
+    } finally {
+      setPendingDeleteCategory(null);
     }
   };
 
@@ -227,6 +239,14 @@ const CategoryManager = ({ categories, dispatch }: CategoryManagerProps) => {
           ))}
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteCategory)}
+        title="Delete category?"
+        description={`Delete "${pendingDeleteCategory?.name || "this category"}"? Categories with subcategories, transactions, budgets, or recurring bills cannot be deleted.`}
+        confirmLabel="Delete"
+        onConfirm={confirmRemoveCategory}
+        onCancel={() => setPendingDeleteCategory(null)}
+      />
     </div>
   );
 };

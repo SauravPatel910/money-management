@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { AppDispatch } from "@/config/reduxStore";
 import { payRecurringBillThunk } from "@/store/transactionsSlice";
 import type { RecurringBill } from "@/types/money";
@@ -8,6 +9,7 @@ import {
   summarizeRecurringBills,
 } from "@/lib/recurringBills";
 import { formatCurrency } from "@/utils/formatters";
+import ConfirmDialog from "@/components/UI/ConfirmDialog";
 
 type UpcomingBillsProps = {
   bills: RecurringBill[];
@@ -42,15 +44,22 @@ export default function UpcomingBills({
     .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
   const summary = summarizeRecurringBills(bills);
   const visibleBills = compact ? activeBills.slice(0, 4) : activeBills;
+  const [pendingPayBill, setPendingPayBill] = useState<RecurringBill | null>(
+    null,
+  );
 
-  const payBill = async (bill: RecurringBill) => {
+  const payBill = async () => {
+    if (!pendingPayBill) return;
+
     try {
-      await dispatch(payRecurringBillThunk(bill.id)).unwrap();
-      onMessage?.(`${bill.name} marked as paid.`);
+      await dispatch(payRecurringBillThunk(pendingPayBill.id)).unwrap();
+      onMessage?.(`${pendingPayBill.name} marked as paid.`);
     } catch (error) {
       onMessage?.(
         error instanceof Error ? error.message : "Failed to mark bill as paid.",
       );
+    } finally {
+      setPendingPayBill(null);
     }
   };
 
@@ -105,7 +114,7 @@ export default function UpcomingBills({
                   type="button"
                   className="rounded-full bg-[#1814f3] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#2d60ff] disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={!bill.active}
-                  onClick={() => payBill(bill)}
+                  onClick={() => setPendingPayBill(bill)}
                 >
                   Mark Paid
                 </button>
@@ -114,6 +123,15 @@ export default function UpcomingBills({
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(pendingPayBill)}
+        title="Mark bill as paid?"
+        description={`Create a payment transaction for "${pendingPayBill?.name || "this bill"}" and move its next due date forward.`}
+        confirmLabel="Mark Paid"
+        tone="warning"
+        onConfirm={payBill}
+        onCancel={() => setPendingPayBill(null)}
+      />
     </section>
   );
 }

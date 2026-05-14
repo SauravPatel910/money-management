@@ -10,6 +10,7 @@ import {
 import Input from "../forms/Input";
 import Select from "../forms/Select";
 import StatusMessage from "../UI/StatusMessage";
+import ConfirmDialog from "../UI/ConfirmDialog";
 import type { Account, AccountFormState } from "../../types/money";
 import { formatCurrency } from "../../utils/formatters";
 
@@ -590,30 +591,17 @@ const AccountManager = () => {
                 onDelete={() => handleDeleteAccount(account.id)}
               />
             )}
-            {pendingDeleteAccountId === account.id && (
-              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-expense-light bg-expense-light/40 px-4 py-3 text-sm text-expense-dark sm:flex-row sm:items-center sm:justify-between">
-                <span>Delete account "{account.name}"?</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-expense px-3 py-1.5 text-xs font-medium text-white"
-                    onClick={handleConfirmDeleteAccount}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700"
-                    onClick={handleCancelDeleteAccount}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteAccountId)}
+        title="Delete account?"
+        description="This account will be permanently removed. Accounts with transactions cannot be deleted."
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDeleteAccount}
+        onCancel={handleCancelDeleteAccount}
+      />
     </div>
   );
 };

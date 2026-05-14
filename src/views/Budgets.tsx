@@ -12,6 +12,7 @@ import PageLayout from "../components/UI/PageLayout";
 import DatePicker from "../components/forms/DatePicker";
 import Select from "../components/forms/Select";
 import StatusMessage from "../components/UI/StatusMessage";
+import ConfirmDialog from "../components/UI/ConfirmDialog";
 import { useAppData } from "../hooks/useAppData";
 import {
   buildBudgetProgress,
@@ -60,6 +61,9 @@ export default function Budgets() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingDeleteBudget, setPendingDeleteBudget] = useState<Budget | null>(
+    null,
+  );
 
   const expenseCategories = useMemo(
     () =>
@@ -127,13 +131,22 @@ export default function Budgets() {
     }
   };
 
-  const removeBudget = async (id: string) => {
+  const removeBudget = (budget: Budget) => {
+    setPendingDeleteBudget(budget);
+    setMessage(null);
+  };
+
+  const confirmRemoveBudget = async () => {
+    if (!pendingDeleteBudget) return;
+
     try {
-      await dispatch(deleteBudgetThunk(id)).unwrap();
+      await dispatch(deleteBudgetThunk(pendingDeleteBudget.id)).unwrap();
       setMessage("Budget deleted.");
-      if (editingId === id) resetForm();
+      if (editingId === pendingDeleteBudget.id) resetForm();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not delete budget.");
+    } finally {
+      setPendingDeleteBudget(null);
     }
   };
 
@@ -340,7 +353,7 @@ export default function Budgets() {
                           <button
                             type="button"
                             className="rounded-full bg-[#ff4b4a] px-3 py-1.5 text-xs font-medium text-white"
-                            onClick={() => removeBudget(budget.id)}
+                            onClick={() => removeBudget(budget)}
                           >
                             Delete
                           </button>
@@ -389,6 +402,14 @@ export default function Budgets() {
             budgets={budgets}
             transactions={transactions}
             month={selectedMonth}
+          />
+          <ConfirmDialog
+            open={Boolean(pendingDeleteBudget)}
+            title="Delete budget?"
+            description={`Delete the budget for "${pendingDeleteBudget?.category?.name || "this category"}"? This cannot be undone.`}
+            confirmLabel="Delete"
+            onConfirm={confirmRemoveBudget}
+            onCancel={() => setPendingDeleteBudget(null)}
           />
         </div>
       </PageLayout>
